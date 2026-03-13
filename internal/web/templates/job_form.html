@@ -1,10 +1,29 @@
 {{ define "content" }}
+<style>
+    .sched-panel{display:none}
+    .sched-panel.active{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .sched-panel select{width:auto;flex:none}
+    .sched-panel span{color:#8b949e;font-size:14px;white-space:nowrap}
+    .sched-pill-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+    .sched-pill{padding:6px 14px;border-radius:20px;border:1px solid #30363d;background:#21262d;color:#8b949e;cursor:pointer;font-size:13px;transition:all .15s}
+    .sched-pill:hover{border-color:#58a6ff;color:#58a6ff}
+    .sched-pill.active{background:#0c2d6b;border-color:#58a6ff;color:#58a6ff;font-weight:600}
+    .cron-preview{margin-top:10px;padding:8px 12px;background:#0d1117;border:1px solid #30363d;border-radius:6px;font-family:"SFMono-Regular",Consolas,monospace;font-size:13px;color:#58a6ff;display:flex;align-items:center;gap:8px}
+    .cron-preview span.label{color:#8b949e;font-family:inherit;font-size:12px}
+    .sched-type-select{width:auto!important;min-width:180px}
+    .inline-selects{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .inline-selects select{width:auto}
+    .inline-selects span{color:#8b949e;font-size:14px}
+    .advanced-toggle{font-size:12px;color:#8b949e;cursor:pointer;margin-top:8px;display:inline-block}
+    .advanced-toggle:hover{color:#58a6ff}
+</style>
+
 <div class="top-bar">
     <h2>{{ if .Job.ID }}Edit Job{{ else }}New Job{{ end }}</h2>
     <a href="/" class="btn">Back</a>
 </div>
 <div class="card">
-    <form method="POST" action="{{ if .Job.ID }}/jobs/{{ .Job.ID }}/edit{{ else }}/jobs/new{{ end }}">
+    <form method="POST" action="{{ if .Job.ID }}/jobs/{{ .Job.ID }}/edit{{ else }}/jobs/new{{ end }}" onsubmit="return buildCron()">
         <div class="form-group">
             <label for="name">Job Name</label>
             <input type="text" id="name" name="name" value="{{ .Job.Name }}" required placeholder="e.g. Nextcloud Cron">
@@ -13,18 +32,123 @@
             <label for="description">Description</label>
             <textarea id="description" name="description" placeholder="What does this job do?">{{ .Job.Description }}</textarea>
         </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label for="cron_expr">Cron Expression</label>
-                <input type="text" id="cron_expr" name="cron_expr" value="{{ .Job.CronExpr }}" required placeholder="0 */5 * * * *">
-                <small style="color:#8b949e">6-field: sec min hour day month weekday</small>
+
+        <!-- ── Schedule Builder ────────────────────────────── -->
+        <div class="form-group">
+            <label>Schedule</label>
+
+            <!-- Quick presets -->
+            <div class="sched-pill-group" id="presets">
+                <button type="button" class="sched-pill" data-cron="0 * * * * *">Every minute</button>
+                <button type="button" class="sched-pill" data-cron="0 */5 * * * *">Every 5 min</button>
+                <button type="button" class="sched-pill" data-cron="0 */15 * * * *">Every 15 min</button>
+                <button type="button" class="sched-pill" data-cron="0 */30 * * * *">Every 30 min</button>
+                <button type="button" class="sched-pill" data-cron="0 0 * * * *">Hourly</button>
+                <button type="button" class="sched-pill" data-cron="0 0 0 * * *">Daily midnight</button>
+                <button type="button" class="sched-pill" data-cron="0 0 8 * * *">Daily 8 AM</button>
+                <button type="button" class="sched-pill" data-cron="0 0 0 * * 0">Weekly Sunday</button>
+                <button type="button" class="sched-pill" data-cron="0 0 0 1 * *">Monthly 1st</button>
             </div>
+
+            <!-- Schedule type selector -->
+            <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span style="color:#8b949e;font-size:13px">Custom:</span>
+                <select id="sched_type" class="sched-type-select" onchange="onTypeChange()">
+                    <option value="interval">Repeat every N minutes</option>
+                    <option value="hourly">Hourly — at a specific minute</option>
+                    <option value="daily">Daily — at a specific time</option>
+                    <option value="weekly">Weekly — on a day &amp; time</option>
+                    <option value="monthly">Monthly — on a date &amp; time</option>
+                    <option value="custom">Advanced (raw cron)</option>
+                </select>
+            </div>
+
+            <!-- Interval panel -->
+            <div id="panel_interval" class="inline-selects sched-panel active">
+                <span>Every</span>
+                <select id="si_interval" onchange="updateCron()">
+                    <option value="1">1 minute</option>
+                    <option value="2">2 minutes</option>
+                    <option value="5" selected>5 minutes</option>
+                    <option value="10">10 minutes</option>
+                    <option value="15">15 minutes</option>
+                    <option value="20">20 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="45">45 minutes</option>
+                </select>
+            </div>
+
+            <!-- Hourly panel -->
+            <div id="panel_hourly" class="inline-selects sched-panel">
+                <span>At minute</span>
+                <select id="sh_min" onchange="updateCron()"></select>
+                <span>of every hour</span>
+            </div>
+
+            <!-- Daily panel -->
+            <div id="panel_daily" class="inline-selects sched-panel">
+                <span>Every day at</span>
+                <select id="sd_hour" onchange="updateCron()"></select>
+                <span>:</span>
+                <select id="sd_min" onchange="updateCron()"></select>
+            </div>
+
+            <!-- Weekly panel -->
+            <div id="panel_weekly" class="inline-selects sched-panel">
+                <span>Every</span>
+                <select id="sw_dow" onchange="updateCron()">
+                    <option value="0">Sunday</option>
+                    <option value="1">Monday</option>
+                    <option value="2">Tuesday</option>
+                    <option value="3">Wednesday</option>
+                    <option value="4">Thursday</option>
+                    <option value="5">Friday</option>
+                    <option value="6">Saturday</option>
+                </select>
+                <span>at</span>
+                <select id="sw_hour" onchange="updateCron()"></select>
+                <span>:</span>
+                <select id="sw_min" onchange="updateCron()"></select>
+            </div>
+
+            <!-- Monthly panel -->
+            <div id="panel_monthly" class="inline-selects sched-panel">
+                <span>On day</span>
+                <select id="sm_day" onchange="updateCron()"></select>
+                <span>of every month at</span>
+                <select id="sm_hour" onchange="updateCron()"></select>
+                <span>:</span>
+                <select id="sm_min" onchange="updateCron()"></select>
+            </div>
+
+            <!-- Custom / advanced panel -->
+            <div id="panel_custom" class="sched-panel" style="display:none;flex-direction:column;gap:4px;margin-top:8px">
+                <input type="text" id="sc_expr" placeholder="0 */5 * * * *" oninput="updateCron()">
+                <small style="color:#8b949e">6-field format: sec min hour day month weekday</small>
+            </div>
+
+            <!-- Live preview -->
+            <div class="cron-preview" id="cron_preview">
+                <span class="label">cron:</span>
+                <span id="cron_display">—</span>
+            </div>
+
+            <!-- Hidden field submitted to server -->
+            <input type="hidden" id="cron_expr" name="cron_expr">
+        </div>
+        <!-- ── End Schedule Builder ────────────────────────── -->
+
+        <div class="form-row">
             <div class="form-group">
                 <label for="runner_type">Runner Type</label>
                 <select id="runner_type" name="runner_type">
                     <option value="shell" {{ if eq (printf "%s" .Job.RunnerType) "shell" }}selected{{ end }}>Shell</option>
                     <option value="docker" {{ if eq (printf "%s" .Job.RunnerType) "docker" }}selected{{ end }}>Docker</option>
                 </select>
+            </div>
+            <div class="form-group">
+                <label for="timeout">Timeout (seconds, 0 = none)</label>
+                <input type="number" id="timeout" name="timeout" value="{{ .Job.Timeout }}" min="0">
             </div>
         </div>
         <div class="form-group">
@@ -37,13 +161,9 @@
                 <input type="text" id="working_dir" name="working_dir" value="{{ .Job.WorkingDir }}" placeholder="/opt/app">
             </div>
             <div class="form-group">
-                <label for="timeout">Timeout (seconds, 0 = none)</label>
-                <input type="number" id="timeout" name="timeout" value="{{ .Job.Timeout }}" min="0">
+                <label for="env_vars">Environment Variables (JSON)</label>
+                <textarea id="env_vars" name="env_vars" placeholder='{"KEY": "value"}'>{{ .Job.EnvVars }}</textarea>
             </div>
-        </div>
-        <div class="form-group">
-            <label for="env_vars">Environment Variables (JSON)</label>
-            <textarea id="env_vars" name="env_vars" placeholder='{"KEY": "value"}'>{{ .Job.EnvVars }}</textarea>
         </div>
         <div class="form-row">
             <div class="form-group">
@@ -66,4 +186,176 @@
         </div>
     </form>
 </div>
+
+<script>
+(function () {
+    // ── Populate hour / minute selects ──────────────────────
+    function populateHours(id, selected) {
+        var el = document.getElementById(id);
+        for (var h = 0; h < 24; h++) {
+            var o = document.createElement('option');
+            o.value = h;
+            o.textContent = ('0' + h).slice(-2) + ':00';
+            if (h === selected) o.selected = true;
+            el.appendChild(o);
+        }
+    }
+    function populateMins(id, selected, step) {
+        step = step || 1;
+        var el = document.getElementById(id);
+        for (var m = 0; m < 60; m += step) {
+            var o = document.createElement('option');
+            o.value = m;
+            o.textContent = ('0' + m).slice(-2);
+            if (m === selected) o.selected = true;
+            el.appendChild(o);
+        }
+    }
+    function populateDays(id, selected) {
+        var el = document.getElementById(id);
+        for (var d = 1; d <= 31; d++) {
+            var o = document.createElement('option');
+            o.value = d;
+            o.textContent = d;
+            if (d === selected) o.selected = true;
+            el.appendChild(o);
+        }
+    }
+
+    populateMins('sh_min', 0);
+    populateHours('sd_hour', 8); populateMins('sd_min', 0, 5);
+    populateHours('sw_hour', 8); populateMins('sw_min', 0, 5);
+    populateDays('sm_day', 1);   populateHours('sm_hour', 8); populateMins('sm_min', 0, 5);
+
+    // ── Build cron from current panel ───────────────────────
+    function val(id) { return parseInt(document.getElementById(id).value, 10); }
+    function str(id) { return document.getElementById(id).value; }
+
+    function buildFromPanel() {
+        var t = str('sched_type');
+        switch (t) {
+            case 'interval':  return '0 */' + val('si_interval') + ' * * * *';
+            case 'hourly':    return '0 ' + val('sh_min') + ' * * * *';
+            case 'daily':     return '0 ' + val('sd_min') + ' ' + val('sd_hour') + ' * * *';
+            case 'weekly':    return '0 ' + val('sw_min') + ' ' + val('sw_hour') + ' * * ' + val('sw_dow');
+            case 'monthly':   return '0 ' + val('sm_min') + ' ' + val('sm_hour') + ' ' + val('sm_day') + ' * *';
+            case 'custom':    return str('sc_expr').trim();
+        }
+        return '';
+    }
+
+    window.updateCron = function () {
+        var expr = buildFromPanel();
+        document.getElementById('cron_display').textContent = expr || '—';
+        document.getElementById('cron_expr').value = expr;
+        // clear pill highlight when manually changing
+        document.querySelectorAll('.sched-pill').forEach(function (p) {
+            p.classList.toggle('active', p.dataset.cron === expr);
+        });
+    };
+
+    window.onTypeChange = function () {
+        var t = str('sched_type');
+        var panels = ['interval', 'hourly', 'daily', 'weekly', 'monthly', 'custom'];
+        panels.forEach(function (p) {
+            var el = document.getElementById('panel_' + p);
+            el.classList.remove('active');
+            el.style.display = 'none';
+        });
+        var active = document.getElementById('panel_' + t);
+        active.style.display = '';
+        active.classList.add('active');
+        updateCron();
+    };
+
+    // ── Preset pill clicks ────────────────────────────────────
+    document.querySelectorAll('.sched-pill').forEach(function (pill) {
+        pill.addEventListener('click', function () {
+            var expr = this.dataset.cron;
+            loadCronExpr(expr);
+        });
+    });
+
+    // ── Parse an existing cron expr into the UI ───────────────
+    function loadCronExpr(expr) {
+        if (!expr) return;
+        document.getElementById('sc_expr').value = expr;
+
+        var m;
+        // interval: 0 */N * * * *
+        if ((m = expr.match(/^0 \*\/(\d+) \* \* \* \*$/))) {
+            setType('interval');
+            setSelectVal('si_interval', parseInt(m[1]));
+        }
+        // hourly: 0 M * * * *
+        else if ((m = expr.match(/^0 (\d+) \* \* \* \*$/))) {
+            setType('hourly');
+            setSelectVal('sh_min', parseInt(m[1]));
+        }
+        // daily: 0 M H * * *
+        else if ((m = expr.match(/^0 (\d+) (\d+) \* \* \*$/))) {
+            setType('daily');
+            setSelectVal('sd_min', parseInt(m[1]));
+            setSelectVal('sd_hour', parseInt(m[2]));
+        }
+        // weekly: 0 M H * * D
+        else if ((m = expr.match(/^0 (\d+) (\d+) \* \* (\d+)$/))) {
+            setType('weekly');
+            setSelectVal('sw_min', parseInt(m[1]));
+            setSelectVal('sw_hour', parseInt(m[2]));
+            setSelectVal('sw_dow', parseInt(m[3]));
+        }
+        // monthly: 0 M H D * *
+        else if ((m = expr.match(/^0 (\d+) (\d+) (\d+) \* \*$/))) {
+            setType('monthly');
+            setSelectVal('sm_min', parseInt(m[1]));
+            setSelectVal('sm_hour', parseInt(m[2]));
+            setSelectVal('sm_day', parseInt(m[3]));
+        }
+        // fallback: custom
+        else {
+            setType('custom');
+            document.getElementById('sc_expr').value = expr;
+        }
+
+        updateCron();
+    }
+
+    function setType(t) {
+        document.getElementById('sched_type').value = t;
+        onTypeChange();
+    }
+
+    function setSelectVal(id, val) {
+        var el = document.getElementById(id);
+        // try exact match first, fallback to closest option
+        var found = false;
+        for (var i = 0; i < el.options.length; i++) {
+            if (parseInt(el.options[i].value) === val) {
+                el.selectedIndex = i;
+                found = true;
+                break;
+            }
+        }
+        // if minute value not in step-5 list (edit mode), switch to custom
+        if (!found && (id === 'sd_min' || id === 'sw_min' || id === 'sm_min')) {
+            setType('custom');
+        }
+    }
+
+    // ── Init: load existing cron on edit, default on new ─────
+    var existingCron = {{ if .Job.CronExpr }}'{{ .Job.CronExpr }}'{{ else }}'0 */5 * * * *'{{ end }};
+    loadCronExpr(existingCron);
+})();
+
+// Called on form submit — ensures hidden field is set
+window.buildCron = function () {
+    var expr = document.getElementById('cron_expr').value.trim();
+    if (!expr) {
+        alert('Please configure a schedule.');
+        return false;
+    }
+    return true;
+};
+</script>
 {{ end }}
