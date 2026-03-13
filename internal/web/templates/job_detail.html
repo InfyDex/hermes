@@ -49,7 +49,7 @@
                 <td>{{ .ID }}</td>
                 <td><span class="badge badge-{{ execStatusClass .Status }}">{{ .Status }}</span></td>
                 <td>{{ .Trigger }}</td>
-                <td><small>{{ .StartTime.Format "2006-01-02 15:04:05" }}</small></td>
+                <td><small>{{ formatTimeVal .StartTime }}</small></td>
                 <td>{{ if .EndTime.Valid }}<small>{{ duration .StartTime .EndTime.Time }}</small>{{ else }}<small>running...</small>{{ end }}</td>
                 <td>{{ if .ExitCode.Valid }}{{ .ExitCode.Int64 }}{{ else }}-{{ end }}</td>
                 <td>
