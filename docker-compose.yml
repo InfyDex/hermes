@@ -4,12 +4,9 @@ services:
     container_name: hermes
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "9191:8080"
     volumes:
-      - hermes_data:/data
+      - /srv/docker/hermes/data:/data
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - TZ=UTC
-
-volumes:
-  hermes_data:
+      - TZ=Asia/Kolkata
