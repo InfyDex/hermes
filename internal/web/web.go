@@ -21,6 +21,9 @@ import (
 //go:embed templates/*.html
 var templateFS embed.FS
 
+//go:embed static/*
+var staticFS embed.FS
+
 type Web struct {
 	db        *database.DB
 	scheduler *scheduler.Scheduler
@@ -119,6 +122,8 @@ func (w *Web) render(wr http.ResponseWriter, name string, data interface{}) {
 }
 
 func (w *Web) RegisterRoutes(r *mux.Router) {
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
+	
 	r.HandleFunc("/", w.dashboard).Methods("GET")
 	r.HandleFunc("/jobs/new", w.newJob).Methods("GET")
 	r.HandleFunc("/jobs/new", w.createJob).Methods("POST")
