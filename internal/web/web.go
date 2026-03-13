@@ -300,15 +300,22 @@ func (w *Web) parseJobForm(r *http.Request) *models.Job {
 		envVars = "{}"
 	}
 	return &models.Job{
-		Name:          r.FormValue("name"),
-		Description:   r.FormValue("description"),
-		CronExpr:      r.FormValue("cron_expr"),
-		RunnerType:    models.RunnerType(r.FormValue("runner_type")),
-		Command:       r.FormValue("command"),
-		WorkingDir:    r.FormValue("working_dir"),
-		EnvVars:       envVars,
-		Timeout:       timeout,
-		AllowParallel: r.FormValue("allow_parallel") == "true",
-		Status:        models.JobStatus(r.FormValue("status")),
+		Name:            r.FormValue("name"),
+		Description:     r.FormValue("description"),
+		CronExpr:        r.FormValue("cron_expr"),
+		RunnerType:      models.RunnerType(r.FormValue("runner_type")),
+		Command:         r.FormValue("command"),
+		WorkingDir:      r.FormValue("working_dir"),
+		EnvVars:         envVars,
+		Timeout:         timeout,
+		AllowParallel:   r.FormValue("allow_parallel") == "true",
+		Status:          models.JobStatus(r.FormValue("status")),
+		NotifyOnStart:   r.FormValue("notify_on_start") == "true",
+		NotifyOnSuccess: r.FormValue("notify_on_success") == "true",
+		NotifyOnFailure: r.FormValue("notify_on_failure") == "true",
+		NotifyOnCancel:  r.FormValue("notify_on_cancel") == "true",
+		NotifyWeb:       r.FormValue("notify_web") == "true",
+		NotifyDiscord:   r.FormValue("notify_discord") == "true",
+		NotifyEmail:     r.FormValue("notify_email") == "true",
 	}
 }

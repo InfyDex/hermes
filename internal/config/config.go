@@ -11,10 +11,21 @@ type Config struct {
 	Auth     AuthConfig     `yaml:"auth"`
 	Database DatabaseConfig `yaml:"database"`
 	Logs     LogsConfig     `yaml:"logs"`
+	Notify   NotifyConfig   `yaml:"notify"`
 }
 
 type ServerConfig struct {
-	Port int `yaml:"port"`
+	Port      int    `yaml:"port"`
+	DomainURL string `yaml:"domain_url"` // e.g. https://hermes.edith.in
+}
+
+type NotifyConfig struct {
+	DiscordWebhookURL string `yaml:"discord_webhook_url"`
+	SMTPHost          string `yaml:"smtp_host"`
+	SMTPPort          int    `yaml:"smtp_port"`
+	SMTPUser          string `yaml:"smtp_user"`
+	SMTPPass          string `yaml:"smtp_pass"`
+	SMTPFrom          string `yaml:"smtp_from"`
 }
 
 type AuthConfig struct {
@@ -59,5 +70,17 @@ func Load(path string) (*Config, error) {
 	if envPass := os.Getenv("HERMES_PASSWORD"); envPass != "" {
 		cfg.Auth.Password = envPass
 	}
+	
+	if envDomain := os.Getenv("HERMES_DOMAIN_URL"); envDomain != "" {
+		cfg.Server.DomainURL = envDomain
+	}
+	if envDiscord := os.Getenv("HERMES_DISCORD_WEBHOOK_URL"); envDiscord != "" {
+		cfg.Notify.DiscordWebhookURL = envDiscord
+	}
+	if envSMTPHost := os.Getenv("HERMES_SMTP_HOST"); envSMTPHost != "" {
+		cfg.Notify.SMTPHost = envSMTPHost
+	}
+	// Note: You can add strconv for port here if needed, keeping simple for now.
 
-	return cfg, nil}
+	return cfg, nil
+}

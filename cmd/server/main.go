@@ -50,6 +50,11 @@ func main() {
 		log.Fatalf("Failed to start scheduler: %v", err)
 	}
 
+	// Clean up old notifications on boot
+	if err := db.ClearOldNotifications(30); err != nil {
+		log.Printf("Warning: failed to clear old notifications: %v", err)
+	}
+
 	router := mux.NewRouter()
 
 	apiHandler := api.New(db, sched, exec)
