@@ -1,0 +1,25 @@
+# Binaries
+hermes
+*.exe
+
+# Data
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/

@@ -1,0 +1,65 @@
+{{ define "content" }}
+<div class="top-bar">
+    <h2>Dashboard</h2>
+    <a href="/jobs/new" class="btn btn-primary">+ New Job</a>
+</div>
+{{ if not .Jobs }}
+<div class="empty-state">
+    <p>No jobs configured yet.</p>
+    <p><a href="/jobs/new">Create your first job</a></p>
+</div>
+{{ else }}
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Schedule</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Last Run</th>
+            <th>Next Run</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {{ range .Jobs }}
+        <tr>
+            <td><a href="/jobs/{{ .ID }}">{{ .Name }}</a></td>
+            <td><code>{{ .CronExpr }}</code></td>
+            <td>{{ .RunnerType }}</td>
+            <td>
+                {{ if eq (printf "%s" .Status) "enabled" }}
+                    <span class="badge badge-enabled">enabled</span>
+                {{ else }}
+                    <span class="badge badge-disabled">disabled</span>
+                {{ end }}
+            </td>
+            <td>
+                {{ if .LastRunAt }}
+                    {{ if .LastRunStatus }}
+                        <span class="badge badge-{{ statusClass .LastRunStatus }}">{{ deref .LastRunStatus }}</span>
+                    {{ end }}
+                    <br><small>{{ formatTime .LastRunAt }}</small>
+                {{ else }}
+                    <span style="color:#8b949e">-</span>
+                {{ end }}
+            </td>
+            <td>
+                {{ if .NextRunAt }}
+                    <small>{{ formatTime .NextRunAt }}</small>
+                {{ else }}
+                    <span style="color:#8b949e">-</span>
+                {{ end }}
+            </td>
+            <td class="actions">
+                <form method="POST" action="/jobs/{{ .ID }}/run" style="display:inline">
+                    <button type="submit" class="btn btn-sm btn-primary">Run</button>
+                </form>
+                <a href="/jobs/{{ .ID }}/edit" class="btn btn-sm">Edit</a>
+            </td>
+        </tr>
+    {{ end }}
+    </tbody>
+</table>
+{{ end }}
+{{ end }}

@@ -1,0 +1,69 @@
+{{ define "content" }}
+<div class="top-bar">
+    <h2>{{ if .Job.ID }}Edit Job{{ else }}New Job{{ end }}</h2>
+    <a href="/" class="btn">Back</a>
+</div>
+<div class="card">
+    <form method="POST" action="{{ if .Job.ID }}/jobs/{{ .Job.ID }}/edit{{ else }}/jobs/new{{ end }}">
+        <div class="form-group">
+            <label for="name">Job Name</label>
+            <input type="text" id="name" name="name" value="{{ .Job.Name }}" required placeholder="e.g. Nextcloud Cron">
+        </div>
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" placeholder="What does this job do?">{{ .Job.Description }}</textarea>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="cron_expr">Cron Expression</label>
+                <input type="text" id="cron_expr" name="cron_expr" value="{{ .Job.CronExpr }}" required placeholder="0 */5 * * * *">
+                <small style="color:#8b949e">6-field: sec min hour day month weekday</small>
+            </div>
+            <div class="form-group">
+                <label for="runner_type">Runner Type</label>
+                <select id="runner_type" name="runner_type">
+                    <option value="shell" {{ if eq (printf "%s" .Job.RunnerType) "shell" }}selected{{ end }}>Shell</option>
+                    <option value="docker" {{ if eq (printf "%s" .Job.RunnerType) "docker" }}selected{{ end }}>Docker</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="command">Command</label>
+            <textarea id="command" name="command" required placeholder="echo hello world">{{ .Job.Command }}</textarea>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="working_dir">Working Directory</label>
+                <input type="text" id="working_dir" name="working_dir" value="{{ .Job.WorkingDir }}" placeholder="/opt/app">
+            </div>
+            <div class="form-group">
+                <label for="timeout">Timeout (seconds, 0 = none)</label>
+                <input type="number" id="timeout" name="timeout" value="{{ .Job.Timeout }}" min="0">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="env_vars">Environment Variables (JSON)</label>
+            <textarea id="env_vars" name="env_vars" placeholder='{"KEY": "value"}'>{{ .Job.EnvVars }}</textarea>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="status">Status</label>
+                <select id="status" name="status">
+                    <option value="enabled" {{ if eq (printf "%s" .Job.Status) "enabled" }}selected{{ end }}>Enabled</option>
+                    <option value="disabled" {{ if eq (printf "%s" .Job.Status) "disabled" }}selected{{ end }}>Disabled</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <div class="form-check" style="margin-top:24px">
+                    <input type="checkbox" id="allow_parallel" name="allow_parallel" value="true" {{ if .Job.AllowParallel }}checked{{ end }}>
+                    <label for="allow_parallel">Allow parallel runs</label>
+                </div>
+            </div>
+        </div>
+        <div class="actions" style="margin-top:16px">
+            <button type="submit" class="btn btn-primary">{{ if .Job.ID }}Save Changes{{ else }}Create Job{{ end }}</button>
+            {{ if .Job.ID }}<a href="/jobs/{{ .Job.ID }}" class="btn">Cancel</a>{{ end }}
+        </div>
+    </form>
+</div>
+{{ end }}

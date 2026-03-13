@@ -1,0 +1,12 @@
+server:
+  port: 8080
+
+auth:
+  username: admin
+  password: admin
+
+database:
+  path: /data/jobs.db
+
+logs:
+  directory: /data/logs

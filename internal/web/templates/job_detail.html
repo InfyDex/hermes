@@ -1,0 +1,69 @@
+{{ define "content" }}
+<div class="top-bar">
+    <h2>{{ .Job.Name }}</h2>
+    <div class="actions">
+        <form method="POST" action="/jobs/{{ .Job.ID }}/run" style="display:inline">
+            <button type="submit" class="btn btn-primary">Run Now</button>
+        </form>
+        <a href="/jobs/{{ .Job.ID }}/edit" class="btn">Edit</a>
+        <form method="POST" action="/jobs/{{ .Job.ID }}/delete" style="display:inline" onsubmit="return confirm('Delete this job?')">
+            <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+        <a href="/" class="btn">Back</a>
+    </div>
+</div>
+<div class="card">
+    <table>
+        <tr><th style="width:160px">Status</th><td>
+            {{ if eq (printf "%s" .Job.Status) "enabled" }}<span class="badge badge-enabled">enabled</span>
+            {{ else }}<span class="badge badge-disabled">disabled</span>{{ end }}
+        </td></tr>
+        <tr><th>Schedule</th><td><code>{{ .Job.CronExpr }}</code></td></tr>
+        <tr><th>Runner</th><td>{{ .Job.RunnerType }}</td></tr>
+        <tr><th>Command</th><td><code>{{ .Job.Command }}</code></td></tr>
+        {{ if .Job.WorkingDir }}<tr><th>Working Dir</th><td>{{ .Job.WorkingDir }}</td></tr>{{ end }}
+        <tr><th>Timeout</th><td>{{ if .Job.Timeout }}{{ .Job.Timeout }}s{{ else }}None{{ end }}</td></tr>
+        <tr><th>Parallel Runs</th><td>{{ if .Job.AllowParallel }}Yes{{ else }}No{{ end }}</td></tr>
+        <tr><th>Last Run</th><td>
+            {{ if .Job.LastRunAt }}
+                <span class="badge badge-{{ statusClass .Job.LastRunStatus }}">{{ deref .Job.LastRunStatus }}</span>
+                {{ formatTime .Job.LastRunAt }}
+            {{ else }}Never{{ end }}
+        </td></tr>
+        <tr><th>Next Run</th><td>{{ if .Job.NextRunAt }}{{ formatTime .Job.NextRunAt }}{{ else }}-{{ end }}</td></tr>
+        <tr><th>Description</th><td>{{ if .Job.Description }}{{ .Job.Description }}{{ else }}<em>-</em>{{ end }}</td></tr>
+    </table>
+</div>
+<div class="card">
+    <div class="card-header">
+        <h3 style="color:#f0f6fc;font-size:16px">Execution History</h3>
+    </div>
+    {{ if not .Executions }}
+    <p style="color:#8b949e;text-align:center;padding:24px">No executions yet.</p>
+    {{ else }}
+    <table>
+        <thead><tr><th>#</th><th>Status</th><th>Trigger</th><th>Started</th><th>Duration</th><th>Exit</th><th>Actions</th></tr></thead>
+        <tbody>
+        {{ range .Executions }}
+            <tr>
+                <td>{{ .ID }}</td>
+                <td><span class="badge badge-{{ execStatusClass .Status }}">{{ .Status }}</span></td>
+                <td>{{ .Trigger }}</td>
+                <td><small>{{ .StartTime.Format "2006-01-02 15:04:05" }}</small></td>
+                <td>{{ if .EndTime.Valid }}<small>{{ duration .StartTime .EndTime.Time }}</small>{{ else }}<small>running...</small>{{ end }}</td>
+                <td>{{ if .ExitCode.Valid }}{{ .ExitCode.Int64 }}{{ else }}-{{ end }}</td>
+                <td class="actions">
+                    <a href="/executions/{{ .ID }}/logs" class="btn btn-sm">Logs</a>
+                    {{ if eq (printf "%s" .Status) "running" }}
+                        <form method="POST" action="/executions/{{ .ID }}/cancel" style="display:inline">
+                            <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+                        </form>
+                    {{ end }}
+                </td>
+            </tr>
+        {{ end }}
+        </tbody>
+    </table>
+    {{ end }}
+</div>
+{{ end }}

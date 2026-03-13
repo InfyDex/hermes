@@ -1,0 +1,42 @@
+{{ define "content" }}
+<div class="top-bar">
+    <h2>Execution #{{ .Execution.ID }} - {{ .Execution.JobName }}</h2>
+    <div class="actions">
+        <a href="/jobs/{{ .Execution.JobID }}" class="btn">Back to Job</a>
+        {{ if eq (printf "%s" .Execution.Status) "running" }}
+            <form method="POST" action="/executions/{{ .Execution.ID }}/cancel" style="display:inline">
+                <button type="submit" class="btn btn-danger">Cancel</button>
+            </form>
+        {{ end }}
+    </div>
+</div>
+<div class="card">
+    <table>
+        <tr><th style="width:120px">Status</th><td><span class="badge badge-{{ execStatusClass .Execution.Status }}">{{ .Execution.Status }}</span></td></tr>
+        <tr><th>Trigger</th><td>{{ .Execution.Trigger }}</td></tr>
+        <tr><th>Started</th><td>{{ .Execution.StartTime.Format "2006-01-02 15:04:05 UTC" }}</td></tr>
+        <tr><th>Ended</th><td>{{ if .Execution.EndTime.Valid }}{{ .Execution.EndTime.Time.Format "2006-01-02 15:04:05 UTC" }}{{ else }}-{{ end }}</td></tr>
+        <tr><th>Exit Code</th><td>{{ if .Execution.ExitCode.Valid }}{{ .Execution.ExitCode.Int64 }}{{ else }}-{{ end }}</td></tr>
+    </table>
+</div>
+<div class="card">
+    <div class="card-header">
+        <h3 style="color:#f0f6fc;font-size:16px">Output</h3>
+        {{ if eq (printf "%s" .Execution.Status) "running" }}<span class="badge badge-running">live</span>{{ end }}
+    </div>
+    <div class="log-viewer" id="log-output">{{ .Logs }}</div>
+</div>
+{{ if eq (printf "%s" .Execution.Status) "running" }}
+<script>
+(function(){
+    var el=document.getElementById('log-output');
+    var eid={{ .Execution.ID }};
+    setInterval(function(){
+        fetch('/api/executions/'+eid+'/logs')
+            .then(function(r){return r.text()})
+            .then(function(t){el.textContent=t;el.scrollTop=el.scrollHeight});
+    },2000);
+})();
+</script>
+{{ end }}
+{{ end }}
