@@ -1,10 +1,10 @@
 services:
   hermes:
-    build: .
+    image: ghcr.io/infydex/hermes:latest
     container_name: hermes
     restart: unless-stopped
     ports:
-      - "9191:8080"
+      - "8080:8080"
     volumes:
       - /srv/docker/hermes/data:/data
       - /var/run/docker.sock:/var/run/docker.sock
