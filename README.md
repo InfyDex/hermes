@@ -42,6 +42,19 @@ services:
       # Optional Override: Change the default 'admin' login credentials
       - HERMES_USERNAME=admin
       - HERMES_PASSWORD=admin
+      
+      # Optional: Enable clickable links within Discord/Email notifications
+      # - HERMES_DOMAIN_URL=https://hermes.example.com
+      
+      # Optional: Discord webhook configuration
+      # - HERMES_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+      
+      # Optional: SMTP Email configuration
+      # - HERMES_SMTP_HOST=smtp.gmail.com
+      # - HERMES_SMTP_PORT=587
+      # - HERMES_SMTP_USER=your-email@gmail.com
+      # - HERMES_SMTP_PASS=your-app-password
+      # - HERMES_SMTP_FROM=your-email@gmail.com
 ```
 
 **2. Start the server:**

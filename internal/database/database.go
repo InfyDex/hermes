@@ -343,6 +343,8 @@ func (db *DB) GetUnreadNotifications() ([]models.Notification, error) {
 		}
 		if jobName.Valid {
 			n.JobName = jobName.String
+		} else if n.JobID == 0 {
+			n.JobName = "System"
 		} else {
 			n.JobName = "Deleted Job"
 		}

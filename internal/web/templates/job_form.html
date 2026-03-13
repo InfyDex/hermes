@@ -209,7 +209,7 @@
                     <strong style="display:block;font-size:13px;color:#c9d1d9;margin-bottom:8px;">Delivery Channels</strong>
                     <div class="form-check" style="margin-bottom:6px;">
                         <input type="checkbox" id="notify_web" name="notify_web" value="true" {{ if or .Job.NotifyWeb (not .Job.ID) }}checked{{ end }}>
-                        <label for="notify_web">Web UI (Bell Icon)</label>
+                        <label for="notify_web">In-App (Bell Icon)</label>
                     </div>
                     <div class="form-check" style="margin-bottom:6px;">
                         <input type="checkbox" id="notify_discord" name="notify_discord" value="true" {{ if .Job.NotifyDiscord }}checked{{ end }}>

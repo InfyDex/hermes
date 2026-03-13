@@ -2,6 +2,7 @@ package web
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
@@ -123,7 +124,7 @@ func (w *Web) render(wr http.ResponseWriter, name string, data interface{}) {
 
 func (w *Web) RegisterRoutes(r *mux.Router) {
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
-	
+
 	r.HandleFunc("/", w.dashboard).Methods("GET")
 	r.HandleFunc("/jobs/new", w.newJob).Methods("GET")
 	r.HandleFunc("/jobs/new", w.createJob).Methods("POST")
@@ -134,6 +135,10 @@ func (w *Web) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/jobs/{id}/delete", w.deleteJob).Methods("POST")
 	r.HandleFunc("/executions/{id}/logs", w.viewLogs).Methods("GET")
 	r.HandleFunc("/executions/{id}/cancel", w.cancelExecution).Methods("POST")
+
+	// Notifications API
+	r.HandleFunc("/api/notifications", w.getNotifications).Methods("GET")
+	r.HandleFunc("/api/notifications/read", w.markNotificationsRead).Methods("POST")
 }
 
 func (w *Web) dashboard(wr http.ResponseWriter, r *http.Request) {
@@ -318,4 +323,26 @@ func (w *Web) parseJobForm(r *http.Request) *models.Job {
 		NotifyDiscord:   r.FormValue("notify_discord") == "true",
 		NotifyEmail:     r.FormValue("notify_email") == "true",
 	}
+}
+
+func (w *Web) getNotifications(wr http.ResponseWriter, r *http.Request) {
+	notifs, err := w.db.GetUnreadNotifications()
+	if err != nil {
+		http.Error(wr, "Failed to get notifications", http.StatusInternalServerError)
+		return
+	}
+
+	wr.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(wr).Encode(notifs); err != nil {
+		http.Error(wr, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (w *Web) markNotificationsRead(wr http.ResponseWriter, r *http.Request) {
+	if err := w.db.MarkAllNotificationsRead(); err != nil {
+		http.Error(wr, "Failed to mark as read", http.StatusInternalServerError)
+		return
+	}
+	wr.WriteHeader(http.StatusOK)
 }

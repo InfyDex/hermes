@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -80,7 +81,21 @@ func Load(path string) (*Config, error) {
 	if envSMTPHost := os.Getenv("HERMES_SMTP_HOST"); envSMTPHost != "" {
 		cfg.Notify.SMTPHost = envSMTPHost
 	}
-	// Note: You can add strconv for port here if needed, keeping simple for now.
+	if envSMTPPort := os.Getenv("HERMES_SMTP_PORT"); envSMTPPort != "" {
+		if port, err := strconv.Atoi(envSMTPPort); err == nil {
+			cfg.Notify.SMTPPort = port
+		}
+	}
+	if envSMTPUser := os.Getenv("HERMES_SMTP_USER"); envSMTPUser != "" {
+		cfg.Notify.SMTPUser = envSMTPUser
+	}
+	if envSMTPPass := os.Getenv("HERMES_SMTP_PASS"); envSMTPPass != "" {
+		cfg.Notify.SMTPPass = envSMTPPass
+	}
+	if envSMTPFrom := os.Getenv("HERMES_SMTP_FROM"); envSMTPFrom != "" {
+		cfg.Notify.SMTPFrom = envSMTPFrom
+	}
+
 
 	return cfg, nil
 }
