@@ -67,7 +67,16 @@ Navigate to `http://YOUR_SERVER_IP:4376` and log in with your credentials.
 
 ---
 
-## 🛠️ Usage & Task Runners
+## � Notifications & Alerts
+
+Hermes can alert you out-of-the-box whenever jobs fail, hang, or when the application restarts. It supports two main remote delivery methods:
+
+- 🎮 **Discord Webhooks:** Get pinged instantly in your private server. [Read the Discord Setup Guide](docs/discord-setup.md).
+- 📧 **SMTP Email:** Deliver logs natively to your inbox (e.g., Gmail). [Read the SMTP Email Setup Guide](docs/email-setup.md).
+
+---
+
+## �🛠️ Usage & Task Runners
 
 When creating a new job, Hermes offers two distinct execution runners depending on your need:
 
