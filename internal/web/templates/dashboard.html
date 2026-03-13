@@ -51,11 +51,13 @@
                     <span style="color:#8b949e">-</span>
                 {{ end }}
             </td>
-            <td class="actions">
-                <form method="POST" action="/jobs/{{ .ID }}/run" style="display:inline">
-                    <button type="submit" class="btn btn-sm btn-primary">Run</button>
-                </form>
-                <a href="/jobs/{{ .ID }}/edit" class="btn btn-sm">Edit</a>
+            <td>
+                <div class="actions">
+                    <form method="POST" action="/jobs/{{ .ID }}/run" style="display:inline;margin:0">
+                        <button type="submit" class="btn btn-sm btn-primary">Run</button>
+                    </form>
+                    <a href="/jobs/{{ .ID }}/edit" class="btn btn-sm">Edit</a>
+                </div>
             </td>
         </tr>
     {{ end }}

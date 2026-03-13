@@ -2,11 +2,11 @@
 <div class="top-bar">
     <h2>{{ .Job.Name }}</h2>
     <div class="actions">
-        <form method="POST" action="/jobs/{{ .Job.ID }}/run" style="display:inline">
+        <form method="POST" action="/jobs/{{ .Job.ID }}/run" style="display:inline;margin:0">
             <button type="submit" class="btn btn-primary">Run Now</button>
         </form>
         <a href="/jobs/{{ .Job.ID }}/edit" class="btn">Edit</a>
-        <form method="POST" action="/jobs/{{ .Job.ID }}/delete" style="display:inline" onsubmit="return confirm('Delete this job?')">
+        <form method="POST" action="/jobs/{{ .Job.ID }}/delete" style="display:inline;margin:0" onsubmit="return confirm('Delete this job?')">
             <button type="submit" class="btn btn-danger">Delete</button>
         </form>
         <a href="/" class="btn">Back</a>
@@ -52,13 +52,15 @@
                 <td><small>{{ .StartTime.Format "2006-01-02 15:04:05" }}</small></td>
                 <td>{{ if .EndTime.Valid }}<small>{{ duration .StartTime .EndTime.Time }}</small>{{ else }}<small>running...</small>{{ end }}</td>
                 <td>{{ if .ExitCode.Valid }}{{ .ExitCode.Int64 }}{{ else }}-{{ end }}</td>
-                <td class="actions">
-                    <a href="/executions/{{ .ID }}/logs" class="btn btn-sm">Logs</a>
-                    {{ if eq (printf "%s" .Status) "running" }}
-                        <form method="POST" action="/executions/{{ .ID }}/cancel" style="display:inline">
-                            <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
-                        </form>
-                    {{ end }}
+                <td>
+                    <div class="actions">
+                        <a href="/executions/{{ .ID }}/logs" class="btn btn-sm">Logs</a>
+                        {{ if eq (printf "%s" .Status) "running" }}
+                            <form method="POST" action="/executions/{{ .ID }}/cancel" style="display:inline;margin:0">
+                                <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+                            </form>
+                        {{ end }}
+                    </div>
                 </td>
             </tr>
         {{ end }}

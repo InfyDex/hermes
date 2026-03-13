@@ -4,7 +4,7 @@
     <div class="actions">
         <a href="/jobs/{{ .Execution.JobID }}" class="btn">Back to Job</a>
         {{ if eq (printf "%s" .Execution.Status) "running" }}
-            <form method="POST" action="/executions/{{ .Execution.ID }}/cancel" style="display:inline">
+            <form method="POST" action="/executions/{{ .Execution.ID }}/cancel" style="display:inline;margin:0">
                 <button type="submit" class="btn btn-danger">Cancel</button>
             </form>
         {{ end }}
