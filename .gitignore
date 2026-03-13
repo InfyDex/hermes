@@ -23,3 +23,7 @@ Thumbs.db
 
 # Go
 vendor/
+
+# Local Testing
+docker-compose.test.yml
+test-data/
