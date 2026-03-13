@@ -1,100 +1,94 @@
-# Hermes
+# ⚡ Hermes Scheduler
 
-Lightweight self-hosted cron scheduler with a web UI. Designed for homelab and single-server environments.
+A beautifully lightweight, self-hosted cron scheduler with a simple Web UI and direct Docker integration. Built perfectly for OpenMediaVault, Unraid, Raspberry Pis, and single-server homelab environments.
 
-## Features
+![Hermes Dashboard Preview](assets/icons/hermes.png) <!-- Will render the logo if placed in the root's `assets/` relative path, or you can update with an actual screenshot! -->
 
-- Cron scheduling with standard expressions (6-field: sec min hour day month weekday)
-- Shell and Docker command execution
-- Job execution history with log capture
-- Overlap prevention (configurable per job)
-- Timeout support
-- Web UI for job management
-- REST API for integrations
-- Basic authentication
-- SQLite persistence
-- Single binary, Docker-ready
+Say goodbye to messy host-machine `crontab` files, and manage all your automated server tasks, backups, and container reboots from one clean dashboard.
 
-## Quick Start
+## ✨ Features
 
-### Docker Compose (recommended)
+- **No Database Overhead:** Completely self-contained embedding its own high-performance SQLite database.
+- **Visual Schedule Builder:** No more struggling to remember cron syntax! Use the intuitive UI to map out hourly, daily, weekly, or specific interval schedules.
+- **Docker Socket Integration:** Talk natively to your host's Docker daemon. Restart containers or trigger scripts *inside* other containers natively from the UI.
+- **Live Output Logs:** Watch your jobs execute in real-time right from the browser. Logs are cleanly rotated to plaintext files on disk.
+- **Overlap Prevention & Timeouts:** Prevent scripts from piling up by forcing single-threaded runs, or enforce hard time limits on hanging jobs.
+- **Micro Footprint:** A statically compiled Go binary running inside a ~15MB Alpine Docker container. Drops memory usage to virtually 0 at idle.
 
+---
+
+## 🚀 Quick Start (Docker Compose)
+
+The easiest way to run Hermes is via Docker Compose using the highly optimized multi-architecture image from the GitHub Container Registry.
+
+**1. Create a `docker-compose.yml` file:**
+```yaml
+services:
+  hermes:
+    image: ghcr.io/infydex/hermes:latest
+    container_name: hermes
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Data storage (Jobs DB and log files)
+      - /path/to/your/appdata/hermes:/data
+      
+      # [Optional] Allows Hermes to run commands on other containers!
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=Asia/Kolkata
+      
+      # Optional Override: Change the default 'admin' login credentials
+      - HERMES_USERNAME=admin
+      - HERMES_PASSWORD=admin
+```
+
+**2. Start the server:**
 ```bash
 docker compose up -d
 ```
 
-Open http://localhost:8080 — login with `admin` / `admin`.
+**3. Open the UI:**
+Navigate to `http://YOUR_SERVER_IP:8080` and log in with your credentials.
 
-### Build from source
+---
 
-```bash
-# Requires Go 1.22+ and CGO (for SQLite)
-go build -o hermes ./cmd/server
-mkdir -p /data/logs
-./hermes -config config.yaml
-```
+## 🛠️ Usage & Task Runners
 
-## Configuration
+When creating a new job, Hermes offers two distinct execution runners depending on your need:
 
-Edit `config.yaml`:
+### 1. The Docker Runner (Recommended)
+Executes your given command directly by talking to the Docker Daemon securely through the mounted `docker.sock`. Bypasses any shells so stopping/"canceling" a task in Hermes instantly sends the SIGKILL precisely to the Docker process.
 
-```yaml
-server:
-  port: 8080
+**Example Use Cases:**
+- Restarting a container: `docker restart jellyfin`
+- Running a backup script inside a specific container: `docker exec rclone-runner /scripts/backup.sh`
 
-auth:
-  username: admin
-  password: changeme
+### 2. The Shell Runner
+Throws your command inside an Alpine `sh -c` shell. Required if you need to use boolean operators, piping output, or local variables.
 
-database:
-  path: /data/jobs.db
+**Example Use Case:**
+- Chaining updates: `docker restart nginx && echo "Ping successful" > /tmp/ping.txt`
 
-logs:
-  directory: /data/logs
-```
+---
 
-## Docker Integration
+## ⚙️ Advanced Configuration (API)
 
-Mount the Docker socket to allow executing Docker commands from scheduled jobs:
-
-```yaml
-volumes:
-  - /var/run/docker.sock:/var/run/docker.sock
-```
-
-Example job command:
-
-```
-docker exec nextcloud php cron.php
-```
-
-## REST API
+Hermes boasts a fully capable REST API to trigger jobs externally (from things like GitHub Actions, Uptime Kuma webhooks, or n8n).
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/jobs` | List all jobs |
-| POST | `/api/jobs` | Create a job |
-| GET | `/api/jobs/{id}` | Get job details |
-| PUT | `/api/jobs/{id}` | Update a job |
-| DELETE | `/api/jobs/{id}` | Delete a job |
-| POST | `/api/jobs/{id}/run` | Trigger manual run |
-| GET | `/api/jobs/{id}/executions` | List executions |
-| POST | `/api/executions/{id}/cancel` | Cancel running execution |
-| GET | `/api/executions/{id}/logs` | Get execution logs |
+| POST | `/api/jobs/{id}/run` | Remotely trigger a job to run right now |
+| POST | `/api/executions/{id}/cancel` | Abort a running execution |
+| GET | `/api/jobs` | Dump list of all configured jobs |
+| GET | `/api/executions/{id}/logs` | Fetch the raw log stream |
 
-All endpoints require Basic Auth.
+*All endpoints require HTTP Basic Auth using your configured username and password.*
 
-### Create a job via API
-
+**Trigger a job remotely:**
 ```bash
-curl -u admin:admin -X POST http://localhost:8080/api/jobs \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "name": "Hello World",
-    "cron_expr": "0 */5 * * * *",
-    "command": "echo hello",
-    "runner_type": "shell"
-  }'
+curl -u admin:YOUR_PASSWORD -X POST http://SERVER_IP:8080/api/jobs/2/run
 ```
 
 ## Project Structure
