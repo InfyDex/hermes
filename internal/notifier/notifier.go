@@ -114,7 +114,7 @@ type Embed struct {
 }
 
 type Payload struct {
-	Username string  `json:"username"`
+	Username string  `json:"username,omitempty"`
 	Embeds   []Embed `json:"embeds"`
 }
 
@@ -125,7 +125,6 @@ func (n *Notifier) sendDiscord(webhookURL, title, link string, color int, jobNam
 	}
 
 	payload := Payload{
-		Username: "Hermes Scheduler",
 		Embeds: []Embed{
 			{
 				Title:       title,
