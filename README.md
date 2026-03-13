@@ -29,7 +29,7 @@ services:
     container_name: hermes
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "4376:4376"
     volumes:
       # Data storage (Jobs DB and log files)
       - /path/to/your/appdata/hermes:/data
@@ -63,7 +63,7 @@ docker compose up -d
 ```
 
 **3. Open the UI:**
-Navigate to `http://YOUR_SERVER_IP:8080` and log in with your credentials.
+Navigate to `http://YOUR_SERVER_IP:4376` and log in with your credentials.
 
 ---
 
@@ -101,7 +101,7 @@ Hermes boasts a fully capable REST API to trigger jobs externally (from things l
 
 **Trigger a job remotely:**
 ```bash
-curl -u admin:YOUR_PASSWORD -X POST http://SERVER_IP:8080/api/jobs/2/run
+curl -u admin:YOUR_PASSWORD -X POST http://SERVER_IP:4376/api/jobs/2/run
 ```
 
 ## Project Structure

@@ -3,65 +3,58 @@ package config
 import (
 	"os"
 	"strconv"
-
-	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Server   ServerConfig   `yaml:"server"`
-	Auth     AuthConfig     `yaml:"auth"`
-	Database DatabaseConfig `yaml:"database"`
-	Logs     LogsConfig     `yaml:"logs"`
-	Notify   NotifyConfig   `yaml:"notify"`
+	Server   ServerConfig
+	Auth     AuthConfig
+	Database DatabaseConfig
+	Logs     LogsConfig
+	Notify   NotifyConfig
 }
 
 type ServerConfig struct {
-	Port      int    `yaml:"port"`
-	DomainURL string `yaml:"domain_url"` // e.g. https://hermes.edith.in
+	Port      int
+	DomainURL string
 }
 
 type NotifyConfig struct {
-	DiscordWebhookURL string `yaml:"discord_webhook_url"`
-	SMTPHost          string `yaml:"smtp_host"`
-	SMTPPort          int    `yaml:"smtp_port"`
-	SMTPUser          string `yaml:"smtp_user"`
-	SMTPPass          string `yaml:"smtp_pass"`
-	SMTPFrom          string `yaml:"smtp_from"`
+	DiscordWebhookURL string
+	SMTPHost          string
+	SMTPPort          int
+	SMTPUser          string
+	SMTPPass          string
+	SMTPFrom          string
 }
 
 type AuthConfig struct {
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
+	Username string
+	Password string
 }
 
 type DatabaseConfig struct {
-	Path string `yaml:"path"`
+	Path string
 }
 
 type LogsConfig struct {
-	Directory string `yaml:"directory"`
+	Directory string
 }
 
 func DefaultConfig() *Config {
 	return &Config{
-		Server:   ServerConfig{Port: 8080},
+		Server:   ServerConfig{Port: 4376},
 		Auth:     AuthConfig{Username: "admin", Password: "admin"},
 		Database: DatabaseConfig{Path: "/data/jobs.db"},
 		Logs:     LogsConfig{Directory: "/data/logs"},
 	}
 }
 
-func Load(path string) (*Config, error) {
+func Load() (*Config, error) {
 	cfg := DefaultConfig()
 
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	} else {
-		if err := yaml.Unmarshal(data, cfg); err != nil {
-			return nil, err
+	if envPort := os.Getenv("HERMES_PORT"); envPort != "" {
+		if port, err := strconv.Atoi(envPort); err == nil {
+			cfg.Server.Port = port
 		}
 	}
 
@@ -71,7 +64,6 @@ func Load(path string) (*Config, error) {
 	if envPass := os.Getenv("HERMES_PASSWORD"); envPass != "" {
 		cfg.Auth.Password = envPass
 	}
-	
 	if envDomain := os.Getenv("HERMES_DOMAIN_URL"); envDomain != "" {
 		cfg.Server.DomainURL = envDomain
 	}
@@ -95,7 +87,6 @@ func Load(path string) (*Config, error) {
 	if envSMTPFrom := os.Getenv("HERMES_SMTP_FROM"); envSMTPFrom != "" {
 		cfg.Notify.SMTPFrom = envSMTPFrom
 	}
-
 
 	return cfg, nil
 }
