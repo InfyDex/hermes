@@ -44,15 +44,20 @@ func Load(path string) (*Config, error) {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return cfg, nil
+		if !os.IsNotExist(err) {
+			return nil, err
 		}
-		return nil, err
+	} else {
+		if err := yaml.Unmarshal(data, cfg); err != nil {
+			return nil, err
+		}
 	}
 
-	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return nil, err
+	if envUser := os.Getenv("HERMES_USERNAME"); envUser != "" {
+		cfg.Auth.Username = envUser
+	}
+	if envPass := os.Getenv("HERMES_PASSWORD"); envPass != "" {
+		cfg.Auth.Password = envPass
 	}
 
-	return cfg, nil
-}
+	return cfg, nil}
