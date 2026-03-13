@@ -16,12 +16,10 @@ RUN apk add --no-cache ca-certificates sqlite docker-cli tzdata
 
 WORKDIR /app
 COPY --from=builder /build/hermes /app/hermes
-COPY config.yaml /app/config.yaml
 
 RUN mkdir -p /data/logs
 
-EXPOSE 8080
+EXPOSE 4376
 VOLUME ["/data"]
 
 ENTRYPOINT ["/app/hermes"]
-CMD ["-config", "/app/config.yaml"]
