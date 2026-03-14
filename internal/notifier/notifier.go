@@ -164,11 +164,11 @@ func (n *Notifier) sendEmail(title, link, jobName string, event EventType) {
 	headers["From"] = from
 	headers["To"] = n.cfg.SMTPUser
 
-	subjectPrefix := "[Hermes]"
+	subjectPrefix := "Hermes"
 	if n.serverName != "" {
-		subjectPrefix = fmt.Sprintf("[Hermes - %s]", n.serverName)
+		subjectPrefix = fmt.Sprintf("Hermes - %s", n.serverName)
 	}
-	headers["Subject"] = subjectPrefix + " " + title
+	headers["Subject"] = subjectPrefix
 
 	headers["MIME-version"] = "1.0"
 	headers["Content-Type"] = "text/html; charset=\"UTF-8\""
@@ -225,11 +225,11 @@ func (n *Notifier) sendSystemEmail(title, bodyText string) {
 	headers["From"] = from
 	headers["To"] = n.cfg.SMTPUser
 
-	subjectPrefix := "[Hermes]"
+	subjectPrefix := "Hermes"
 	if n.serverName != "" {
-		subjectPrefix = fmt.Sprintf("[Hermes - %s]", n.serverName)
+		subjectPrefix = fmt.Sprintf("Hermes - %s", n.serverName)
 	}
-	headers["Subject"] = subjectPrefix + " " + title
+	headers["Subject"] = subjectPrefix
 
 	headers["MIME-version"] = "1.0"
 	headers["Content-Type"] = "text/html; charset=\"UTF-8\""

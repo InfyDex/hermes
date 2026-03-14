@@ -139,6 +139,7 @@ func (w *Web) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/jobs/{id}/edit", w.editJob).Methods("GET")
 	r.HandleFunc("/jobs/{id}/edit", w.updateJob).Methods("POST")
 	r.HandleFunc("/jobs/{id}/run", w.runJob).Methods("POST")
+	r.HandleFunc("/jobs/{id}/toggle", w.toggleJob).Methods("POST")
 	r.HandleFunc("/jobs/{id}/delete", w.deleteJob).Methods("POST")
 	r.HandleFunc("/executions/{id}/logs", w.viewLogs).Methods("GET")
 	r.HandleFunc("/executions/{id}/cancel", w.cancelExecution).Methods("POST")
@@ -252,6 +253,39 @@ func (w *Web) runJob(wr http.ResponseWriter, r *http.Request) {
 	}
 	go w.executor.Run(job, "manual")
 	http.Redirect(wr, r, fmt.Sprintf("/jobs/%d", job.ID), http.StatusSeeOther)
+}
+
+func (w *Web) toggleJob(wr http.ResponseWriter, r *http.Request) {
+	id, err := webParseID(r)
+	if err != nil {
+		http.Error(wr, "invalid id", http.StatusBadRequest)
+		return
+	}
+	job, err := w.db.GetJob(id)
+	if err != nil || job == nil {
+		http.Error(wr, "not found", http.StatusNotFound)
+		return
+	}
+
+	if job.Status == models.JobStatusEnabled {
+		job.Status = models.JobStatusDisabled
+		w.scheduler.RemoveJob(job.ID)
+	} else {
+		job.Status = models.JobStatusEnabled
+		w.scheduler.AddJob(job)
+	}
+
+	if err := w.db.UpdateJob(job); err != nil {
+		log.Printf("Failed to update job status: %v", err)
+		http.Error(wr, "failed to update job", http.StatusInternalServerError)
+		return
+	}
+
+	ref := r.Header.Get("Referer")
+	if ref == "" {
+		ref = fmt.Sprintf("/jobs/%d", job.ID)
+	}
+	http.Redirect(wr, r, ref, http.StatusSeeOther)
 }
 
 func (w *Web) deleteJob(wr http.ResponseWriter, r *http.Request) {
