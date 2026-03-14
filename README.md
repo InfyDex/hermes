@@ -1,7 +1,7 @@
 # ⚡ Hermes Scheduler
 
 [![GitHub Tag](https://img.shields.io/github/v/tag/InfyDex/hermes?style=flat-square&label=version)](https://github.com/InfyDex/hermes/tags)
-[![Docker Image Size (tag)](https://img.shields.io/docker/image-size/infydex/hermes/latest?style=flat-square&label=image%20size)](https://github.com/InfyDex/hermes/pkgs/container/hermes)
+[![Docker Image Size](https://ghcr-badge.egpl.dev/infydex/hermes/size?color=%2344cc11&label=image+size&trim=)](https://github.com/InfyDex/hermes/pkgs/container/hermes)
 
 A beautifully lightweight, self-hosted cron scheduler with a simple Web UI and direct Docker integration. Built perfectly for OpenMediaVault, Unraid, Raspberry Pis, and single-server homelab environments.
 
