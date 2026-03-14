@@ -180,6 +180,49 @@
                 </div>
             </div>
         </div>
+
+        <div class="card" style="margin-top:24px;background:#161b22;padding:16px;border-radius:8px;">
+            <h3 style="margin-bottom:12px;color:#f0f6fc;font-size:16px;">Notifications</h3>
+            <p style="font-size:12px;color:#8b949e;margin-bottom:16px;">Select which events and channels should trigger notifications for this job.</p>
+            
+            <div class="form-row" style="gap:24px;">
+                <div>
+                    <strong style="display:block;font-size:13px;color:#c9d1d9;margin-bottom:8px;">Events to Notify</strong>
+                    <div class="form-check" style="margin-bottom:6px;">
+                        <input type="checkbox" id="notify_on_start" name="notify_on_start" value="true" {{ if .Job.NotifyOnStart }}checked{{ end }}>
+                        <label for="notify_on_start">On Start</label>
+                    </div>
+                    <div class="form-check" style="margin-bottom:6px;">
+                        <input type="checkbox" id="notify_on_success" name="notify_on_success" value="true" {{ if .Job.NotifyOnSuccess }}checked{{ end }}>
+                        <label for="notify_on_success">On Success</label>
+                    </div>
+                    <div class="form-check" style="margin-bottom:6px;">
+                        <input type="checkbox" id="notify_on_failure" name="notify_on_failure" value="true" {{ if or .Job.NotifyOnFailure (not .Job.ID) }}checked{{ end }}>
+                        <label for="notify_on_failure">On Failure (Recommended)</label>
+                    </div>
+                    <div class="form-check" style="margin-bottom:6px;">
+                        <input type="checkbox" id="notify_on_cancel" name="notify_on_cancel" value="true" {{ if .Job.NotifyOnCancel }}checked{{ end }}>
+                        <label for="notify_on_cancel">On Cancel</label>
+                    </div>
+                </div>
+                <div>
+                    <strong style="display:block;font-size:13px;color:#c9d1d9;margin-bottom:8px;">Delivery Channels</strong>
+                    <div class="form-check" style="margin-bottom:6px;">
+                        <input type="checkbox" id="notify_web" name="notify_web" value="true" {{ if or .Job.NotifyWeb (not .Job.ID) }}checked{{ end }}>
+                        <label for="notify_web">In-App (Bell Icon)</label>
+                    </div>
+                    <div class="form-check" style="margin-bottom:6px;">
+                        <input type="checkbox" id="notify_discord" name="notify_discord" value="true" {{ if .Job.NotifyDiscord }}checked{{ end }}>
+                        <label for="notify_discord">Discord Webhook</label>
+                    </div>
+                    <div class="form-check" style="margin-bottom:6px;">
+                        <input type="checkbox" id="notify_email" name="notify_email" value="true" {{ if .Job.NotifyEmail }}checked{{ end }}>
+                        <label for="notify_email">Email (SMTP)</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="actions" style="margin-top:16px">
             <button type="submit" class="btn btn-primary">{{ if .Job.ID }}Save Changes{{ else }}Create Job{{ end }}</button>
             {{ if .Job.ID }}<a href="/jobs/{{ .Job.ID }}" class="btn">Cancel</a>{{ end }}

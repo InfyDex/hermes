@@ -14,8 +14,8 @@
     <table>
         <tr><th style="width:120px">Status</th><td><span class="badge badge-{{ execStatusClass .Execution.Status }}">{{ .Execution.Status }}</span></td></tr>
         <tr><th>Trigger</th><td>{{ .Execution.Trigger }}</td></tr>
-        <tr><th>Started</th><td>{{ .Execution.StartTime.Format "2006-01-02 15:04:05 UTC" }}</td></tr>
-        <tr><th>Ended</th><td>{{ if .Execution.EndTime.Valid }}{{ .Execution.EndTime.Time.Format "2006-01-02 15:04:05 UTC" }}{{ else }}-{{ end }}</td></tr>
+        <tr><th>Started</th><td>{{ formatTimeVal .Execution.StartTime }}</td></tr>
+        <tr><th>Ended</th><td>{{ if .Execution.EndTime.Valid }}{{ formatTimeVal .Execution.EndTime.Time }}{{ else }}-{{ end }}</td></tr>
         <tr><th>Exit Code</th><td>{{ if .Execution.ExitCode.Valid }}{{ .Execution.ExitCode.Int64 }}{{ else }}-{{ end }}</td></tr>
     </table>
 </div>

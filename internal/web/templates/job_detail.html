@@ -2,6 +2,13 @@
 <div class="top-bar">
     <h2>{{ .Job.Name }}</h2>
     <div class="actions">
+        <form method="POST" action="/jobs/{{ .Job.ID }}/toggle" style="display:inline;margin:0">
+            {{ if eq (printf "%s" .Job.Status) "enabled" }}
+            <button type="submit" class="btn btn-danger">Disable</button>
+            {{ else }}
+            <button type="submit" class="btn" style="background-color:#238636;color:white;border-color:rgba(240,246,252,0.1)">Enable</button>
+            {{ end }}
+        </form>
         <form method="POST" action="/jobs/{{ .Job.ID }}/run" style="display:inline;margin:0">
             <button type="submit" class="btn btn-primary">Run Now</button>
         </form>
@@ -49,7 +56,7 @@
                 <td>{{ .ID }}</td>
                 <td><span class="badge badge-{{ execStatusClass .Status }}">{{ .Status }}</span></td>
                 <td>{{ .Trigger }}</td>
-                <td><small>{{ .StartTime.Format "2006-01-02 15:04:05" }}</small></td>
+                <td><small>{{ formatTimeVal .StartTime }}</small></td>
                 <td>{{ if .EndTime.Valid }}<small>{{ duration .StartTime .EndTime.Time }}</small>{{ else }}<small>running...</small>{{ end }}</td>
                 <td>{{ if .ExitCode.Valid }}{{ .ExitCode.Int64 }}{{ else }}-{{ end }}</td>
                 <td>

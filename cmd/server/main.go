@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,16 +14,14 @@ import (
 	"github.com/hermes-scheduler/hermes/internal/config"
 	"github.com/hermes-scheduler/hermes/internal/database"
 	"github.com/hermes-scheduler/hermes/internal/executor"
+	"github.com/hermes-scheduler/hermes/internal/notifier"
 	"github.com/hermes-scheduler/hermes/internal/runners"
 	"github.com/hermes-scheduler/hermes/internal/scheduler"
 	"github.com/hermes-scheduler/hermes/internal/web"
 )
 
 func main() {
-	configPath := flag.String("config", "config.yaml", "path to config file")
-	flag.Parse()
-
-	cfg, err := config.Load(*configPath)
+	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
@@ -43,12 +40,29 @@ func main() {
 	registry.Register(runners.NewShellRunner())
 	registry.Register(runners.NewDockerRunner())
 
-	exec := executor.New(db, registry, cfg.Logs.Directory)
+	notif := notifier.New(db, &cfg.Notify, cfg.Server.DomainURL, cfg.Server.ServerName)
+	exec := executor.New(db, registry, cfg.Logs.Directory, notif)
 
 	sched := scheduler.New(db, exec)
 	if err := sched.Start(); err != nil {
 		log.Fatalf("Failed to start scheduler: %v", err)
 	}
+
+	// Clean up old notifications on boot
+	if err := db.ClearOldNotifications(30); err != nil {
+		log.Printf("Warning: failed to clear old notifications: %v", err)
+	}
+
+	jobs, err := db.ListJobs()
+	jobCount := 0
+	if err == nil {
+		for _, j := range jobs {
+			if j.Status == "enabled" {
+				jobCount++
+			}
+		}
+	}
+	notif.SystemNotify("Hermes Started", fmt.Sprintf("Hermes is ready. %d jobs are scheduled.", jobCount))
 
 	router := mux.NewRouter()
 

@@ -31,6 +31,16 @@ type Job struct {
 	Timeout       int        `json:"timeout"`
 	AllowParallel bool       `json:"allow_parallel"`
 	Status        JobStatus  `json:"status"`
+
+	// Notification settings
+	NotifyOnStart   bool `json:"notify_on_start"`
+	NotifyOnSuccess bool `json:"notify_on_success"`
+	NotifyOnFailure bool `json:"notify_on_failure"`
+	NotifyOnCancel  bool `json:"notify_on_cancel"`
+	NotifyWeb       bool `json:"notify_web"`
+	NotifyDiscord   bool `json:"notify_discord"`
+	NotifyEmail     bool `json:"notify_email"`
+
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
 	LastRunAt     *time.Time `json:"last_run_at,omitempty"`
@@ -58,4 +68,14 @@ type Execution struct {
 	Status    ExecutionStatus `json:"status"`
 	LogPath   string          `json:"log_path"`
 	Trigger   string          `json:"trigger"`
+}
+
+type Notification struct {
+	ID        int64     `json:"id"`
+	JobID     int64     `json:"job_id"`
+	JobName   string    `json:"job_name"`
+	Level     string    `json:"level"` // "info", "success", "error", "warning"
+	Message   string    `json:"message"`
+	CreatedAt time.Time `json:"created_at"`
+	IsRead    bool      `json:"is_read"`
 }

@@ -53,6 +53,13 @@
             </td>
             <td>
                 <div class="actions">
+                    <form method="POST" action="/jobs/{{ .ID }}/toggle" style="display:inline;margin:0">
+                        {{ if eq (printf "%s" .Status) "enabled" }}
+                        <button type="submit" class="btn btn-sm btn-danger">Disable</button>
+                        {{ else }}
+                        <button type="submit" class="btn btn-sm" style="background-color:#238636;color:white;border-color:rgba(240,246,252,0.1)">Enable</button>
+                        {{ end }}
+                    </form>
                     <form method="POST" action="/jobs/{{ .ID }}/run" style="display:inline;margin:0">
                         <button type="submit" class="btn btn-sm btn-primary">Run</button>
                     </form>

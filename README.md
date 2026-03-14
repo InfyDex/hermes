@@ -1,5 +1,8 @@
 # ⚡ Hermes Scheduler
 
+[![GitHub Tag](https://img.shields.io/github/v/tag/InfyDex/hermes?style=flat-square&label=version)](https://github.com/InfyDex/hermes/tags)
+[![Docker Image Size](https://ghcr-badge.egpl.dev/infydex/hermes/size?color=%2344cc11&label=image+size&trim=)](https://github.com/InfyDex/hermes/pkgs/container/hermes)
+
 A beautifully lightweight, self-hosted cron scheduler with a simple Web UI and direct Docker integration. Built perfectly for OpenMediaVault, Unraid, Raspberry Pis, and single-server homelab environments.
 
 ![Hermes Dashboard Preview](assets/icons/hermes.png) <!-- Will render the logo if placed in the root's `assets/` relative path, or you can update with an actual screenshot! -->
@@ -29,7 +32,7 @@ services:
     container_name: hermes
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "4376:4376"
     volumes:
       # Data storage (Jobs DB and log files)
       - /path/to/your/appdata/hermes:/data
@@ -42,6 +45,22 @@ services:
       # Optional Override: Change the default 'admin' login credentials
       - HERMES_USERNAME=admin
       - HERMES_PASSWORD=admin
+      
+      # Optional: Identify which server this instance is running on (used in notification prefixes)
+      - HERMES_SERVER_NAME=MyHomeServer
+      
+      # Optional: Enable clickable links within Discord/Email notifications
+      # - HERMES_DOMAIN_URL=https://hermes.example.com
+      
+      # Optional: Discord webhook configuration
+      # - HERMES_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+      
+      # Optional: SMTP Email configuration
+      # - HERMES_SMTP_HOST=smtp.gmail.com
+      # - HERMES_SMTP_PORT=587
+      # - HERMES_SMTP_USER=your-email@gmail.com
+      # - HERMES_SMTP_PASS=your-app-password
+      # - HERMES_SMTP_FROM=your-email@gmail.com
 ```
 
 **2. Start the server:**
@@ -50,11 +69,20 @@ docker compose up -d
 ```
 
 **3. Open the UI:**
-Navigate to `http://YOUR_SERVER_IP:8080` and log in with your credentials.
+Navigate to `http://YOUR_SERVER_IP:4376` and log in with your credentials.
 
 ---
 
-## 🛠️ Usage & Task Runners
+## � Notifications & Alerts
+
+Hermes can alert you out-of-the-box whenever jobs fail, hang, or when the application restarts. It supports two main remote delivery methods:
+
+- 🎮 **Discord Webhooks:** Get pinged instantly in your private server. [Read the Discord Setup Guide](docs/discord-setup.md).
+- 📧 **SMTP Email:** Deliver logs natively to your inbox (e.g., Gmail). [Read the SMTP Email Setup Guide](docs/email-setup.md).
+
+---
+
+## �🛠️ Usage & Task Runners
 
 When creating a new job, Hermes offers two distinct execution runners depending on your need:
 
@@ -88,7 +116,7 @@ Hermes boasts a fully capable REST API to trigger jobs externally (from things l
 
 **Trigger a job remotely:**
 ```bash
-curl -u admin:YOUR_PASSWORD -X POST http://SERVER_IP:8080/api/jobs/2/run
+curl -u admin:YOUR_PASSWORD -X POST http://SERVER_IP:4376/api/jobs/2/run
 ```
 
 ## Project Structure
@@ -152,6 +180,10 @@ Register in `cmd/server/main.go`:
 ```go
 registry.Register(myNewRunner)
 ```
+
+## Changelog
+
+Detailed changes for each release are documented in the [CHANGELOG.md](CHANGELOG.md) file.
 
 ## License
 

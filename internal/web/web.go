@@ -2,6 +2,7 @@ package web
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
@@ -48,7 +49,13 @@ func (w *Web) loadTemplates() {
 			if t == nil {
 				return "-"
 			}
-			return t.Format("2006-01-02 15:04:05")
+			return t.Local().Format("2006-01-02 15:04:05")
+		},
+		"formatTimeVal": func(t time.Time) string {
+			if t.IsZero() {
+				return "-"
+			}
+			return t.Local().Format("2006-01-02 15:04:05")
 		},
 		"statusClass": func(s *string) string {
 			if s == nil {
@@ -122,8 +129,9 @@ func (w *Web) render(wr http.ResponseWriter, name string, data interface{}) {
 }
 
 func (w *Web) RegisterRoutes(r *mux.Router) {
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
-	
+	// `staticFS` embed structure natively contains the `static/` prefix
+	r.PathPrefix("/static/").Handler(http.FileServer(http.FS(staticFS)))
+
 	r.HandleFunc("/", w.dashboard).Methods("GET")
 	r.HandleFunc("/jobs/new", w.newJob).Methods("GET")
 	r.HandleFunc("/jobs/new", w.createJob).Methods("POST")
@@ -131,9 +139,14 @@ func (w *Web) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/jobs/{id}/edit", w.editJob).Methods("GET")
 	r.HandleFunc("/jobs/{id}/edit", w.updateJob).Methods("POST")
 	r.HandleFunc("/jobs/{id}/run", w.runJob).Methods("POST")
+	r.HandleFunc("/jobs/{id}/toggle", w.toggleJob).Methods("POST")
 	r.HandleFunc("/jobs/{id}/delete", w.deleteJob).Methods("POST")
 	r.HandleFunc("/executions/{id}/logs", w.viewLogs).Methods("GET")
 	r.HandleFunc("/executions/{id}/cancel", w.cancelExecution).Methods("POST")
+
+	// Notifications API
+	r.HandleFunc("/api/notifications", w.getNotifications).Methods("GET")
+	r.HandleFunc("/api/notifications/read", w.markNotificationsRead).Methods("POST")
 }
 
 func (w *Web) dashboard(wr http.ResponseWriter, r *http.Request) {
@@ -242,6 +255,39 @@ func (w *Web) runJob(wr http.ResponseWriter, r *http.Request) {
 	http.Redirect(wr, r, fmt.Sprintf("/jobs/%d", job.ID), http.StatusSeeOther)
 }
 
+func (w *Web) toggleJob(wr http.ResponseWriter, r *http.Request) {
+	id, err := webParseID(r)
+	if err != nil {
+		http.Error(wr, "invalid id", http.StatusBadRequest)
+		return
+	}
+	job, err := w.db.GetJob(id)
+	if err != nil || job == nil {
+		http.Error(wr, "not found", http.StatusNotFound)
+		return
+	}
+
+	if job.Status == models.JobStatusEnabled {
+		job.Status = models.JobStatusDisabled
+		w.scheduler.RemoveJob(job.ID)
+	} else {
+		job.Status = models.JobStatusEnabled
+		w.scheduler.AddJob(job)
+	}
+
+	if err := w.db.UpdateJob(job); err != nil {
+		log.Printf("Failed to update job status: %v", err)
+		http.Error(wr, "failed to update job", http.StatusInternalServerError)
+		return
+	}
+
+	ref := r.Header.Get("Referer")
+	if ref == "" {
+		ref = fmt.Sprintf("/jobs/%d", job.ID)
+	}
+	http.Redirect(wr, r, ref, http.StatusSeeOther)
+}
+
 func (w *Web) deleteJob(wr http.ResponseWriter, r *http.Request) {
 	id, err := webParseID(r)
 	if err != nil {
@@ -300,15 +346,44 @@ func (w *Web) parseJobForm(r *http.Request) *models.Job {
 		envVars = "{}"
 	}
 	return &models.Job{
-		Name:          r.FormValue("name"),
-		Description:   r.FormValue("description"),
-		CronExpr:      r.FormValue("cron_expr"),
-		RunnerType:    models.RunnerType(r.FormValue("runner_type")),
-		Command:       r.FormValue("command"),
-		WorkingDir:    r.FormValue("working_dir"),
-		EnvVars:       envVars,
-		Timeout:       timeout,
-		AllowParallel: r.FormValue("allow_parallel") == "true",
-		Status:        models.JobStatus(r.FormValue("status")),
+		Name:            r.FormValue("name"),
+		Description:     r.FormValue("description"),
+		CronExpr:        r.FormValue("cron_expr"),
+		RunnerType:      models.RunnerType(r.FormValue("runner_type")),
+		Command:         r.FormValue("command"),
+		WorkingDir:      r.FormValue("working_dir"),
+		EnvVars:         envVars,
+		Timeout:         timeout,
+		AllowParallel:   r.FormValue("allow_parallel") == "true",
+		Status:          models.JobStatus(r.FormValue("status")),
+		NotifyOnStart:   r.FormValue("notify_on_start") == "true",
+		NotifyOnSuccess: r.FormValue("notify_on_success") == "true",
+		NotifyOnFailure: r.FormValue("notify_on_failure") == "true",
+		NotifyOnCancel:  r.FormValue("notify_on_cancel") == "true",
+		NotifyWeb:       r.FormValue("notify_web") == "true",
+		NotifyDiscord:   r.FormValue("notify_discord") == "true",
+		NotifyEmail:     r.FormValue("notify_email") == "true",
 	}
+}
+
+func (w *Web) getNotifications(wr http.ResponseWriter, r *http.Request) {
+	notifs, err := w.db.GetUnreadNotifications()
+	if err != nil {
+		http.Error(wr, "Failed to get notifications", http.StatusInternalServerError)
+		return
+	}
+
+	wr.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(wr).Encode(notifs); err != nil {
+		http.Error(wr, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (w *Web) markNotificationsRead(wr http.ResponseWriter, r *http.Request) {
+	if err := w.db.MarkAllNotificationsRead(); err != nil {
+		http.Error(wr, "Failed to mark as read", http.StatusInternalServerError)
+		return
+	}
+	wr.WriteHeader(http.StatusOK)
 }

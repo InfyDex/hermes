@@ -12,6 +12,7 @@ import (
 
 	"github.com/hermes-scheduler/hermes/internal/database"
 	"github.com/hermes-scheduler/hermes/internal/models"
+	"github.com/hermes-scheduler/hermes/internal/notifier"
 	"github.com/hermes-scheduler/hermes/internal/runners"
 )
 
@@ -19,18 +20,20 @@ type Executor struct {
 	db       *database.DB
 	registry *runners.Registry
 	logsDir  string
+	notifier *notifier.Notifier
 
 	mu       sync.Mutex
 	running  map[int64]context.CancelFunc // execution ID -> cancel
 	jobLocks map[int64]bool               // job ID -> is running
 }
 
-func New(db *database.DB, registry *runners.Registry, logsDir string) *Executor {
+func New(db *database.DB, registry *runners.Registry, logsDir string, notif *notifier.Notifier) *Executor {
 	os.MkdirAll(logsDir, 0750)
 	return &Executor{
 		db:       db,
 		registry: registry,
 		logsDir:  logsDir,
+		notifier: notif,
 		running:  make(map[int64]context.CancelFunc),
 		jobLocks: make(map[int64]bool),
 	}
@@ -82,6 +85,8 @@ func (e *Executor) Run(job *models.Job, trigger string) {
 		return
 	}
 
+	e.notifier.Notify(job, execution, notifier.EventStart)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	if job.Timeout > 0 {
 		ctx, cancel = context.WithTimeout(context.Background(), time.Duration(job.Timeout)*time.Second)
@@ -109,16 +114,20 @@ func (e *Executor) Run(job *models.Job, trigger string) {
 	switch {
 	case ctx.Err() == context.Canceled:
 		execution.Status = models.ExecStatusCanceled
+		e.notifier.Notify(job, execution, notifier.EventCancel)
 	case ctx.Err() == context.DeadlineExceeded:
 		execution.Status = models.ExecStatusFailed
 		fmt.Fprintf(logFile, "\n[hermes] Job timed out after %d seconds\n", job.Timeout)
+		e.notifier.Notify(job, execution, notifier.EventFailure)
 	case runErr != nil || exitCode != 0:
 		execution.Status = models.ExecStatusFailed
 		if runErr != nil {
 			fmt.Fprintf(logFile, "\n[hermes] Execution error: %v\n", runErr)
 		}
+		e.notifier.Notify(job, execution, notifier.EventFailure)
 	default:
 		execution.Status = models.ExecStatusSuccess
+		e.notifier.Notify(job, execution, notifier.EventSuccess)
 	}
 
 	e.db.UpdateExecution(execution)
