@@ -167,11 +167,13 @@ func (w *Web) newJob(wr http.ResponseWriter, r *http.Request) {
 	w.render(wr, "job_form", map[string]interface{}{
 		"Title": "New Job",
 		"Job":   &models.Job{RunnerType: models.RunnerTypeShell, Status: models.JobStatusEnabled, EnvVars: "{}"},
+		"PredefinedJobs": models.PredefinedJobsRegistry,
 	})
 }
 
 func (w *Web) createJob(wr http.ResponseWriter, r *http.Request) {
 	job := w.parseJobForm(r)
+	job.ApplyPredefinedOverrides()
 	if err := w.db.CreateJob(job); err != nil {
 		http.Error(wr, err.Error(), http.StatusInternalServerError)
 		return
@@ -211,7 +213,11 @@ func (w *Web) editJob(wr http.ResponseWriter, r *http.Request) {
 		http.Error(wr, "not found", http.StatusNotFound)
 		return
 	}
-	w.render(wr, "job_form", map[string]interface{}{"Title": "Edit " + job.Name, "Job": job})
+	w.render(wr, "job_form", map[string]interface{}{
+		"Title": "Edit " + job.Name, 
+		"Job": job,
+		"PredefinedJobs": models.PredefinedJobsRegistry,
+	})
 }
 
 func (w *Web) updateJob(wr http.ResponseWriter, r *http.Request) {
@@ -228,6 +234,7 @@ func (w *Web) updateJob(wr http.ResponseWriter, r *http.Request) {
 	job := w.parseJobForm(r)
 	job.ID = id
 	job.CreatedAt = existing.CreatedAt
+	job.ApplyPredefinedOverrides()
 	if err := w.db.UpdateJob(job); err != nil {
 		http.Error(wr, err.Error(), http.StatusInternalServerError)
 		return
@@ -345,8 +352,7 @@ func (w *Web) parseJobForm(r *http.Request) *models.Job {
 	if envVars == "" {
 		envVars = "{}"
 	}
-	return &models.Job{
-		Name:            r.FormValue("name"),
+	return &models.Job{		PredefinedJobID: r.FormValue("predefined_job_id"),		Name:            r.FormValue("name"),
 		Description:     r.FormValue("description"),
 		CronExpr:        r.FormValue("cron_expr"),
 		RunnerType:      models.RunnerType(r.FormValue("runner_type")),

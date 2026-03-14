@@ -37,6 +37,7 @@ func (db *DB) migrate() error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS jobs (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		predefined_job_id TEXT NOT NULL DEFAULT '',
 		name TEXT NOT NULL,
 		description TEXT NOT NULL DEFAULT '',
 		cron_expr TEXT NOT NULL,
@@ -99,6 +100,7 @@ func (db *DB) migrate() error {
 		"ALTER TABLE jobs ADD COLUMN notify_web INTEGER NOT NULL DEFAULT 0",
 		"ALTER TABLE jobs ADD COLUMN notify_discord INTEGER NOT NULL DEFAULT 0",
 		"ALTER TABLE jobs ADD COLUMN notify_email INTEGER NOT NULL DEFAULT 0",
+		"ALTER TABLE jobs ADD COLUMN predefined_job_id TEXT NOT NULL DEFAULT ''",
 	}
 	for _, stmt := range alterStatements {
 		db.conn.Exec(stmt) // ignore errors if columns already exist
@@ -109,7 +111,7 @@ func (db *DB) migrate() error {
 
 func (db *DB) ListJobs() ([]models.Job, error) {
 	rows, err := db.conn.Query(`
-		SELECT id, name, description, cron_expr, runner_type, command,
+		SELECT id, predefined_job_id, name, description, cron_expr, runner_type, command,
 		       working_dir, env_vars, timeout, allow_parallel, status,
 		       notify_on_start, notify_on_success, notify_on_failure, notify_on_cancel, notify_web, notify_discord, notify_email,
 		       created_at, updated_at, last_run_at, last_run_status, next_run_at
@@ -132,7 +134,7 @@ func (db *DB) ListJobs() ([]models.Job, error) {
 
 func (db *DB) GetJob(id int64) (*models.Job, error) {
 	row := db.conn.QueryRow(`
-		SELECT id, name, description, cron_expr, runner_type, command,
+		SELECT id, predefined_job_id, name, description, cron_expr, runner_type, command,
 		       working_dir, env_vars, timeout, allow_parallel, status,
 		       notify_on_start, notify_on_success, notify_on_failure, notify_on_cancel, notify_web, notify_discord, notify_email,
 		       created_at, updated_at, last_run_at, last_run_status, next_run_at
@@ -152,12 +154,12 @@ func (db *DB) CreateJob(j *models.Job) error {
 	j.CreatedAt = now
 	j.UpdatedAt = now
 	result, err := db.conn.Exec(`
-		INSERT INTO jobs (name, description, cron_expr, runner_type, command,
+		INSERT INTO jobs (predefined_job_id, name, description, cron_expr, runner_type, command,
 		                   working_dir, env_vars, timeout, allow_parallel, status,
 		                  notify_on_start, notify_on_success, notify_on_failure, notify_on_cancel, notify_web, notify_discord, notify_email,
 		                  created_at, updated_at, next_run_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		j.Name, j.Description, j.CronExpr, j.RunnerType, j.Command,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		j.PredefinedJobID, j.Name, j.Description, j.CronExpr, j.RunnerType, j.Command,
 		j.WorkingDir, j.EnvVars, j.Timeout, j.AllowParallel, j.Status,
 		j.NotifyOnStart, j.NotifyOnSuccess, j.NotifyOnFailure, j.NotifyOnCancel, j.NotifyWeb, j.NotifyDiscord, j.NotifyEmail,
 		j.CreatedAt, j.UpdatedAt, j.NextRunAt)
@@ -171,12 +173,12 @@ func (db *DB) CreateJob(j *models.Job) error {
 func (db *DB) UpdateJob(j *models.Job) error {
 	j.UpdatedAt = time.Now().UTC()
 	_, err := db.conn.Exec(`
-		UPDATE jobs SET name=?, description=?, cron_expr=?, runner_type=?, command=?,
+		UPDATE jobs SET predefined_job_id=?, name=?, description=?, cron_expr=?, runner_type=?, command=?,
 		               working_dir=?, env_vars=?, timeout=?, allow_parallel=?, status=?,
 		                notify_on_start=?, notify_on_success=?, notify_on_failure=?, notify_on_cancel=?, notify_web=?, notify_discord=?, notify_email=?,
 		                updated_at=?, next_run_at=?
 		WHERE id=?`,
-		j.Name, j.Description, j.CronExpr, j.RunnerType, j.Command,
+		j.PredefinedJobID, j.Name, j.Description, j.CronExpr, j.RunnerType, j.Command,
 		j.WorkingDir, j.EnvVars, j.Timeout, j.AllowParallel, j.Status,
 		j.NotifyOnStart, j.NotifyOnSuccess, j.NotifyOnFailure, j.NotifyOnCancel, j.NotifyWeb, j.NotifyDiscord, j.NotifyEmail,
 		j.UpdatedAt, j.NextRunAt, j.ID)
@@ -291,7 +293,7 @@ func scanJobFields(s scanner) (models.Job, error) {
 	var nStart, nSuccess, nFail, nCancel, nWeb, nDiscord, nEmail int
 
 	err := s.Scan(
-		&j.ID, &j.Name, &j.Description, &j.CronExpr, &j.RunnerType, &j.Command,
+		&j.ID, &j.PredefinedJobID, &j.Name, &j.Description, &j.CronExpr, &j.RunnerType, &j.Command,
 		&j.WorkingDir, &j.EnvVars, &j.Timeout, &allowParallel, &j.Status,
 		&nStart, &nSuccess, &nFail, &nCancel, &nWeb, &nDiscord, &nEmail,
 		&j.CreatedAt, &j.UpdatedAt, &j.LastRunAt, &j.LastRunStatus, &j.NextRunAt)

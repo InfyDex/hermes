@@ -33,6 +33,20 @@
             <textarea id="description" name="description" placeholder="What does this job do?">{{ .Job.Description }}</textarea>
         </div>
 
+        <!-- ── Job Type / Template Selector ────────────────────────────── -->
+        <div class="form-group">
+            <label for="predefined_job_id">Job Type</label>
+            <select id="predefined_job_id" name="predefined_job_id" onchange="onPredefinedChange()">
+                <option value="">Custom Job (Manual Configuration)</option>
+                {{ if .PredefinedJobs }}
+                    {{ range $id, $pjob := .PredefinedJobs }}
+                        <option value="{{ $id }}" {{ if eq $.Job.PredefinedJobID $id }}selected{{ end }}>{{ $pjob.Name }} (Template)</option>
+                    {{ end }}
+                {{ end }}
+            </select>
+            <small style="color:#8b949e">Selecting a template locks runner and command settings.</small>
+        </div>
+
         <!-- ── Schedule Builder ────────────────────────────── -->
         <div class="form-group">
             <label>Schedule</label>
@@ -389,10 +403,45 @@
     // ── Init: load existing cron on edit, default on new ─────
     var existingCron = {{ if .Job.CronExpr }}'{{ .Job.CronExpr }}'{{ else }}'0 */5 * * * *'{{ end }};
     loadCronExpr(existingCron);
+
+    // Init predefined jobs toggle
+    window.onPredefinedChange();
 })();
+
+// Toggle visibility/disabled state based on selected template
+window.onPredefinedChange = function () {
+    var pSelect = document.getElementById('predefined_job_id');
+    if (!pSelect) return;
+    
+    var isPredefined = pSelect.value !== "";
+    var cmdBox = document.getElementById('command');
+    var runnerSel = document.getElementById('runner_type');
+    var workDirBox = document.getElementById('working_dir');
+    
+    if (isPredefined) {
+        cmdBox.disabled = true;
+        cmdBox.value = "# Locked: Managed by Hermes Template";
+        runnerSel.disabled = true;
+        workDirBox.disabled = true;
+    } else {
+        cmdBox.disabled = false;
+        runnerSel.disabled = false;
+        workDirBox.disabled = false;
+        if (cmdBox.value === "# Locked: Managed by Hermes Template") {
+             cmdBox.value = "";
+        }
+    }
+};
 
 // Called on form submit — ensures hidden field is set
 window.buildCron = function () {
+    // If predefined, the server handles fields, but disabled inputs are not submitted.
+    // However, server parseJobForm uses FormValue which might miss disabled ones.
+    // For predefined, we re-enable just before submit, or the server just ignores these.
+    document.getElementById('runner_type').disabled = false;
+    document.getElementById('command').disabled = false;
+    document.getElementById('working_dir').disabled = false;
+
     var expr = document.getElementById('cron_expr').value.trim();
     if (!expr) {
         alert('Please configure a schedule.');
