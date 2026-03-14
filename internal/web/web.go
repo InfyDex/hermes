@@ -129,7 +129,8 @@ func (w *Web) render(wr http.ResponseWriter, name string, data interface{}) {
 }
 
 func (w *Web) RegisterRoutes(r *mux.Router) {
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
+	// `staticFS` embed structure natively contains the `static/` prefix
+	r.PathPrefix("/static/").Handler(http.FileServer(http.FS(staticFS)))
 
 	r.HandleFunc("/", w.dashboard).Methods("GET")
 	r.HandleFunc("/jobs/new", w.newJob).Methods("GET")
