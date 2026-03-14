@@ -1,5 +1,8 @@
 # ⚡ Hermes Scheduler
 
+[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/InfyDex/hermes?style=flat-square)](https://github.com/InfyDex/hermes/releases)
+[![Docker Image Size](https://img.shields.io/docker/image-size/ghcr.io/infydex/hermes/latest?style=flat-square)](https://github.com/InfyDex/hermes/pkgs/container/hermes)
+
 A beautifully lightweight, self-hosted cron scheduler with a simple Web UI and direct Docker integration. Built perfectly for OpenMediaVault, Unraid, Raspberry Pis, and single-server homelab environments.
 
 ![Hermes Dashboard Preview](assets/icons/hermes.png) <!-- Will render the logo if placed in the root's `assets/` relative path, or you can update with an actual screenshot! -->
@@ -177,6 +180,10 @@ Register in `cmd/server/main.go`:
 ```go
 registry.Register(myNewRunner)
 ```
+
+## Changelog
+
+Detailed changes for each release are documented in the [CHANGELOG.md](CHANGELOG.md) file.
 
 ## License
 
