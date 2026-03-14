@@ -31,7 +31,7 @@ type Job struct {
 	Timeout       int        `json:"timeout"`
 	AllowParallel bool       `json:"allow_parallel"`
 	Status        JobStatus  `json:"status"`
-	
+
 	// Notification settings
 	NotifyOnStart   bool `json:"notify_on_start"`
 	NotifyOnSuccess bool `json:"notify_on_success"`

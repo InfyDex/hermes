@@ -289,13 +289,13 @@ func scanJobFields(s scanner) (models.Job, error) {
 	var j models.Job
 	var allowParallel int
 	var nStart, nSuccess, nFail, nCancel, nWeb, nDiscord, nEmail int
-	
+
 	err := s.Scan(
 		&j.ID, &j.Name, &j.Description, &j.CronExpr, &j.RunnerType, &j.Command,
 		&j.WorkingDir, &j.EnvVars, &j.Timeout, &allowParallel, &j.Status,
 		&nStart, &nSuccess, &nFail, &nCancel, &nWeb, &nDiscord, &nEmail,
 		&j.CreatedAt, &j.UpdatedAt, &j.LastRunAt, &j.LastRunStatus, &j.NextRunAt)
-		
+
 	j.AllowParallel = allowParallel != 0
 	j.NotifyOnStart = nStart != 0
 	j.NotifyOnSuccess = nSuccess != 0
@@ -304,7 +304,7 @@ func scanJobFields(s scanner) (models.Job, error) {
 	j.NotifyWeb = nWeb != 0
 	j.NotifyDiscord = nDiscord != 0
 	j.NotifyEmail = nEmail != 0
-	
+
 	return j, err
 }
 

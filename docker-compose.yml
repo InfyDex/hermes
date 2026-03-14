@@ -14,6 +14,9 @@ services:
       - HERMES_USERNAME=admin
       - HERMES_PASSWORD=admin
       
+      # Optional: Identify the server sending the alerts (e.g. Edith)
+      # - HERMES_SERVER_NAME=Edith
+      
       # Optional: To enable clickable links in notifications
       # - HERMES_DOMAIN_URL=https://hermes.example.com
       

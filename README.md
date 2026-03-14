@@ -43,6 +43,9 @@ services:
       - HERMES_USERNAME=admin
       - HERMES_PASSWORD=admin
       
+      # Optional: Identify which server this instance is running on (used in notification prefixes)
+      - HERMES_SERVER_NAME=MyHomeServer
+      
       # Optional: Enable clickable links within Discord/Email notifications
       # - HERMES_DOMAIN_URL=https://hermes.example.com
       

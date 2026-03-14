@@ -14,8 +14,9 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port      int
-	DomainURL string
+	Port       int
+	DomainURL  string
+	ServerName string
 }
 
 type NotifyConfig struct {
@@ -66,6 +67,9 @@ func Load() (*Config, error) {
 	}
 	if envDomain := os.Getenv("HERMES_DOMAIN_URL"); envDomain != "" {
 		cfg.Server.DomainURL = envDomain
+	}
+	if envServerName := os.Getenv("HERMES_SERVER_NAME"); envServerName != "" {
+		cfg.Server.ServerName = envServerName
 	}
 	if envDiscord := os.Getenv("HERMES_DISCORD_WEBHOOK_URL"); envDiscord != "" {
 		cfg.Notify.DiscordWebhookURL = envDiscord

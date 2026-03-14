@@ -40,7 +40,7 @@ func main() {
 	registry.Register(runners.NewShellRunner())
 	registry.Register(runners.NewDockerRunner())
 
-	notif := notifier.New(db, &cfg.Notify, cfg.Server.DomainURL)
+	notif := notifier.New(db, &cfg.Notify, cfg.Server.DomainURL, cfg.Server.ServerName)
 	exec := executor.New(db, registry, cfg.Logs.Directory, notif)
 
 	sched := scheduler.New(db, exec)

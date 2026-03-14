@@ -24,16 +24,18 @@ const (
 )
 
 type Notifier struct {
-	db  *database.DB
-	cfg *config.NotifyConfig
-	url string
+	db         *database.DB
+	cfg        *config.NotifyConfig
+	url        string
+	serverName string
 }
 
-func New(db *database.DB, cfg *config.NotifyConfig, domainURL string) *Notifier {
+func New(db *database.DB, cfg *config.NotifyConfig, domainURL, serverName string) *Notifier {
 	return &Notifier{
-		db:  db,
-		cfg: cfg,
-		url: domainURL,
+		db:         db,
+		cfg:        cfg,
+		url:        domainURL,
+		serverName: serverName,
 	}
 }
 
@@ -135,6 +137,10 @@ func (n *Notifier) sendDiscord(webhookURL, title, link string, color int, jobNam
 		},
 	}
 
+	if n.serverName != "" {
+		payload.Username = fmt.Sprintf("Hermes - %s", n.serverName)
+	}
+
 	data, err := json.Marshal(payload)
 	if err != nil {
 		log.Printf("Failed to marshal discord payload: %v", err)
@@ -157,7 +163,13 @@ func (n *Notifier) sendEmail(title, link, jobName string, event EventType) {
 	}
 	headers["From"] = from
 	headers["To"] = n.cfg.SMTPUser
-	headers["Subject"] = "[Hermes] " + title
+
+	subjectPrefix := "[Hermes]"
+	if n.serverName != "" {
+		subjectPrefix = fmt.Sprintf("[Hermes - %s]", n.serverName)
+	}
+	headers["Subject"] = subjectPrefix + " " + title
+
 	headers["MIME-version"] = "1.0"
 	headers["Content-Type"] = "text/html; charset=\"UTF-8\""
 
@@ -212,7 +224,13 @@ func (n *Notifier) sendSystemEmail(title, bodyText string) {
 	}
 	headers["From"] = from
 	headers["To"] = n.cfg.SMTPUser
-	headers["Subject"] = "[Hermes] " + title
+
+	subjectPrefix := "[Hermes]"
+	if n.serverName != "" {
+		subjectPrefix = fmt.Sprintf("[Hermes - %s]", n.serverName)
+	}
+	headers["Subject"] = subjectPrefix + " " + title
+
 	headers["MIME-version"] = "1.0"
 	headers["Content-Type"] = "text/html; charset=\"UTF-8\""
 
