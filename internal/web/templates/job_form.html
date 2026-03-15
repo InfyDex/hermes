@@ -40,11 +40,11 @@
                 <option value="">Custom Job (Manual Configuration)</option>
                 {{ if .PredefinedJobs }}
                     {{ range $id, $pjob := .PredefinedJobs }}
-                        <option value="{{ $id }}" {{ if eq $.Job.PredefinedJobID $id }}selected{{ end }}>{{ $pjob.Name }} (Template)</option>
+                        <option value="{{ $id }}" {{ if eq $.Job.PredefinedJobID $id }}selected{{ end }}>{{ $pjob.Name }} (System Job)</option>
                     {{ end }}
                 {{ end }}
             </select>
-            <small style="color:#8b949e">Selecting a template locks runner and command settings.</small>
+            <small style="color:#8b949e">Selecting a system job locks runner and command settings.</small>
         </div>
 
         <!-- ── Schedule Builder ────────────────────────────── -->
@@ -179,7 +179,7 @@
         </div>
 
         <div class="form-group" id="script_editor_group" style="display:none;">
-            <label>Template Script Configuration</label>
+            <label>System Script Configuration</label>
             <p style="font-size:12px;color:#8b949e;margin-bottom:8px;">You can view and modify the execution script below. Any changes will be cloned securely into your /data volume.</p>
             <textarea id="script_content" name="script_content" rows="15" style="font-family:monospace;white-space:pre;overflow:auto;background:#0d1117;color:#c9d1d9;padding:12px;width:100%;border:1px solid #30363d;border-radius:6px;resize:vertical;">{{ .CurrentScript }}</textarea>
         </div>
