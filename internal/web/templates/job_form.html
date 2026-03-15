@@ -422,9 +422,6 @@
     // ── Init: load existing cron on edit, default on new ─────
     var existingCron = {{ if .Job.CronExpr }}'{{ .Job.CronExpr }}'{{ else }}'0 */5 * * * *'{{ end }};
     loadCronExpr(existingCron);
-
-    // Init predefined jobs toggle
-    window.onPredefinedChange();
 })();
 
 // Toggle visibility/disabled state based on selected template
@@ -473,6 +470,8 @@ window.onPredefinedChange = function (userChanged) {
         scriptGroup.style.display = 'none';
     }
 };
+
+window.onPredefinedChange();
 
 // Called on form submit — ensures hidden field is set
 window.buildCron = function () {
