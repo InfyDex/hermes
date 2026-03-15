@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -163,21 +164,63 @@ func (w *Web) dashboard(wr http.ResponseWriter, r *http.Request) {
 	w.render(wr, "dashboard", map[string]interface{}{"Title": "Dashboard", "Jobs": jobs})
 }
 
+type PredefinedJobData struct {
+	models.PredefinedJob
+	DefaultScript string
+}
+
+func getPredefinedJobsData() map[string]PredefinedJobData {
+	res := make(map[string]PredefinedJobData)
+	for k, v := range models.PredefinedJobsRegistry {
+		content, _ := os.ReadFile(v.ScriptPath)
+		res[k] = PredefinedJobData{
+			PredefinedJob: v,
+			DefaultScript: string(content),
+		}
+	}
+	return res
+}
+
+func saveJobScript(jobID int64, content string) (string, error) {
+	dir := "/data/scripts"
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", err
+	}
+	path := filepath.Join(dir, fmt.Sprintf("job_%d_script.sh", jobID))
+	err := os.WriteFile(path, []byte(content), 0755)
+	if err == nil {
+		_ = os.Chmod(path, 0755)
+	}
+	return path, err
+}
+
 func (w *Web) newJob(wr http.ResponseWriter, r *http.Request) {
 	w.render(wr, "job_form", map[string]interface{}{
 		"Title": "New Job",
 		"Job":   &models.Job{RunnerType: models.RunnerTypeShell, Status: models.JobStatusEnabled, EnvVars: "{}"},
 		"PredefinedJobs": models.PredefinedJobsRegistry,
+		"PredefinedJobsData": getPredefinedJobsData(),
 	})
 }
 
 func (w *Web) createJob(wr http.ResponseWriter, r *http.Request) {
 	job := w.parseJobForm(r)
-	job.ApplyPredefinedOverrides()
+	job.ApplyPredefinedOverrides("")
 	if err := w.db.CreateJob(job); err != nil {
 		http.Error(wr, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	if job.PredefinedJobID != "" {
+		scriptContent := r.FormValue("script_content")
+		if scriptContent != "" {
+			if path, err := saveJobScript(job.ID, scriptContent); err == nil {
+				job.ApplyPredefinedOverrides(path)
+				w.db.UpdateJob(job)
+			}
+		}
+	}
+
 	if job.Status == models.JobStatusEnabled {
 		w.scheduler.AddJob(job)
 	}
@@ -213,10 +256,21 @@ func (w *Web) editJob(wr http.ResponseWriter, r *http.Request) {
 		http.Error(wr, "not found", http.StatusNotFound)
 		return
 	}
+
+	var currentScript string
+	if job.PredefinedJobID != "" {
+		b, err := os.ReadFile(job.Command)
+		if err == nil {
+			currentScript = string(b)
+		}
+	}
+
 	w.render(wr, "job_form", map[string]interface{}{
 		"Title": "Edit " + job.Name, 
 		"Job": job,
 		"PredefinedJobs": models.PredefinedJobsRegistry,
+		"PredefinedJobsData": getPredefinedJobsData(),
+		"CurrentScript": currentScript,
 	})
 }
 
@@ -234,7 +288,20 @@ func (w *Web) updateJob(wr http.ResponseWriter, r *http.Request) {
 	job := w.parseJobForm(r)
 	job.ID = id
 	job.CreatedAt = existing.CreatedAt
-	job.ApplyPredefinedOverrides()
+	
+	if job.PredefinedJobID != "" {
+		scriptContent := r.FormValue("script_content")
+		if scriptContent != "" {
+			if path, err := saveJobScript(job.ID, scriptContent); err == nil {
+				job.ApplyPredefinedOverrides(path)
+			} else {
+				job.ApplyPredefinedOverrides("")
+			}
+		} else {
+			job.ApplyPredefinedOverrides("")
+		}
+	}
+
 	if err := w.db.UpdateJob(job); err != nil {
 		http.Error(wr, err.Error(), http.StatusInternalServerError)
 		return
