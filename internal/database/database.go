@@ -262,7 +262,7 @@ func (db *DB) ListExecutions(jobID int64, limit int) ([]models.Execution, error)
 
 func (db *DB) GetEnabledJobs() ([]models.Job, error) {
 	rows, err := db.conn.Query(`
-		SELECT id, name, description, cron_expr, runner_type, command,
+		SELECT id, predefined_job_id, name, description, cron_expr, runner_type, command,
 		       working_dir, env_vars, timeout, allow_parallel, status,
 		       notify_on_start, notify_on_success, notify_on_failure, notify_on_cancel, notify_web, notify_discord, notify_email,
 		       created_at, updated_at, last_run_at, last_run_status, next_run_at

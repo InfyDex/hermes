@@ -352,7 +352,7 @@ func (w *Web) parseJobForm(r *http.Request) *models.Job {
 	if envVars == "" {
 		envVars = "{}"
 	}
-	return &models.Job{		PredefinedJobID: r.FormValue("predefined_job_id"),		Name:            r.FormValue("name"),
+	return &models.Job{PredefinedJobID: r.FormValue("predefined_job_id"), Name: r.FormValue("name"),
 		Description:     r.FormValue("description"),
 		CronExpr:        r.FormValue("cron_expr"),
 		RunnerType:      models.RunnerType(r.FormValue("runner_type")),
