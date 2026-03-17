@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -70,6 +71,10 @@ func applyEnv(cmd *exec.Cmd, envJSON string) {
 	if envJSON == "" || envJSON == "{}" {
 		return
 	}
+	
+	// Start with the parent (system) environment to preserve PATH, HOME, etc.
+	cmd.Env = os.Environ()
+
 	var envMap map[string]string
 	if err := json.Unmarshal([]byte(envJSON), &envMap); err == nil {
 		for k, v := range envMap {
