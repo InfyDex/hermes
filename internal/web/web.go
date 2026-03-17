@@ -182,7 +182,7 @@ func getPredefinedJobsData() map[string]PredefinedJobData {
 }
 
 func (w *Web) saveJobScript(jobID int64, content string) (string, error) {
-	scriptsDir := filepath.Join("data", "scripts")
+	scriptsDir := filepath.Join(string(filepath.Separator), "data", "scripts")
 	if err := os.MkdirAll(scriptsDir, 0755); err != nil {
 		return "", err
 	}
@@ -190,9 +190,6 @@ func (w *Web) saveJobScript(jobID int64, content string) (string, error) {
 	err := os.WriteFile(path, []byte(content), 0755)
 	if err == nil {
 		_ = os.Chmod(path, 0755)
-		if absPath, absErr := filepath.Abs(path); absErr == nil {
-			path = absPath
-		}
 	}
 	return path, err
 }
@@ -379,11 +376,8 @@ func (w *Web) deleteJob(wr http.ResponseWriter, r *http.Request) {
 
 		// Delete only generated predefined-job scripts to avoid removing template/builtin scripts.
 		candidates := []string{
-			filepath.Clean(filepath.Join("data", "scripts", scriptName)),
 			filepath.Clean(filepath.Join("/data", "scripts", scriptName)),
-		}
-		if abs, absErr := filepath.Abs(filepath.Join("data", "scripts", scriptName)); absErr == nil {
-			candidates = append(candidates, filepath.Clean(abs))
+			filepath.Clean(filepath.Join("/app", "data", "scripts", scriptName)), // legacy path from prior relative-save behavior
 		}
 
 		for _, candidate := range candidates {
