@@ -1,4 +1,24 @@
-# Changelog - v0.0.3
+# Changelog
+
+## v0.0.4
+
+### ✨ New Features
+* **Predefined System Jobs:** Added first built-in predefined job template, `Docker System Cleanup`, available directly from the job creation form.
+* **Script Cloning for Predefined Jobs:** Predefined job scripts are copied into persistent storage at `/data/scripts/job_<id>_script.sh` so each job can keep its own editable script copy.
+* **Predefined Job Registry Model:** Introduced dedicated predefined-job model and registry wiring in backend job logic.
+* **Bundled Maintenance Script:** Added `scripts/docker-cleanup.sh` as the baseline docker cleanup task used by predefined jobs.
+
+### 🔧 Improvements
+* **Job Form UX Enhancements:** Improved the create/edit form flow for predefined jobs, including job type handling, script editor experience, and related field behavior.
+* **Runner Compatibility:** Shell execution flow updated to better support script-style command usage (including bash-oriented job scenarios).
+* **Dashboard and Job Detail UI Updates:** Refined job table/details display to reflect new predefined job behavior and metadata.
+
+### 📦 Infrastructure & Packaging
+* **Docker Image Runtime Update:** Image/runtime setup adjusted to support shell-script execution needs for predefined maintenance tasks.
+
+---
+
+## v0.0.3
 
 ## ✨ New Features
 * **Multi-Channel Notification Engine:** Comprehensive rewrite introducing alerts for Discord Webhooks, SMTP Email integrations, and In-App Web UI drop-down alerts.
