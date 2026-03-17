@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -186,8 +187,12 @@ func (w *Web) saveJobScript(jobID int64, content string) (string, error) {
 	if err := os.MkdirAll(scriptsDir, 0755); err != nil {
 		return "", err
 	}
+
+	normalizedContent := strings.ReplaceAll(content, "\r\n", "\n")
+	normalizedContent = strings.ReplaceAll(normalizedContent, "\r", "\n")
+
 	path := filepath.Join(scriptsDir, fmt.Sprintf("job_%d_script.sh", jobID))
-	err := os.WriteFile(path, []byte(content), 0755)
+	err := os.WriteFile(path, []byte(normalizedContent), 0755)
 	if err == nil {
 		_ = os.Chmod(path, 0755)
 	}

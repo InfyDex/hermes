@@ -1,6 +1,7 @@
 package runners
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -19,6 +20,8 @@ func NewShellRunner() *ShellRunner { return &ShellRunner{} }
 func (r *ShellRunner) Type() models.RunnerType { return models.RunnerTypeShell }
 
 func (r *ShellRunner) Execute(ctx context.Context, job *models.Job, output io.Writer) (int, error) {
+	normalizePredefinedScript(job)
+
 	cmd := exec.CommandContext(ctx, "sh", "-c", job.Command)
 	if job.WorkingDir != "" {
 		cmd.Dir = job.WorkingDir
@@ -35,6 +38,33 @@ func (r *ShellRunner) Execute(ctx context.Context, job *models.Job, output io.Wr
 		return -1, err
 	}
 	return 0, nil
+}
+
+func normalizePredefinedScript(job *models.Job) {
+	if job == nil || job.PredefinedJobID == "" {
+		return
+	}
+
+	path := strings.TrimSpace(job.Command)
+	if !strings.HasPrefix(path, "/data/scripts/job_") || !strings.HasSuffix(path, "_script.sh") {
+		return
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+
+	normalized := bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
+	normalized = bytes.ReplaceAll(normalized, []byte("\r\n"), []byte("\n"))
+	normalized = bytes.ReplaceAll(normalized, []byte("\r"), []byte("\n"))
+	if bytes.Equal(data, normalized) {
+		return
+	}
+
+	if err := os.WriteFile(path, normalized, 0755); err == nil {
+		_ = os.Chmod(path, 0755)
+	}
 }
 
 // DockerRunner executes docker CLI commands directly.
@@ -71,7 +101,7 @@ func applyEnv(cmd *exec.Cmd, envJSON string) {
 	if envJSON == "" || envJSON == "{}" {
 		return
 	}
-	
+
 	// Start with the parent (system) environment to preserve PATH, HOME, etc.
 	cmd.Env = os.Environ()
 
