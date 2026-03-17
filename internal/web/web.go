@@ -181,24 +181,27 @@ func getPredefinedJobsData() map[string]PredefinedJobData {
 	return res
 }
 
-func saveJobScript(jobID int64, content string) (string, error) {
-	dir := "/data/scripts"
-	if err := os.MkdirAll(dir, 0755); err != nil {
+func (w *Web) saveJobScript(jobID int64, content string) (string, error) {
+	scriptsDir := filepath.Join("data", "scripts")
+	if err := os.MkdirAll(scriptsDir, 0755); err != nil {
 		return "", err
 	}
-	path := filepath.Join(dir, fmt.Sprintf("job_%d_script.sh", jobID))
+	path := filepath.Join(scriptsDir, fmt.Sprintf("job_%d_script.sh", jobID))
 	err := os.WriteFile(path, []byte(content), 0755)
 	if err == nil {
 		_ = os.Chmod(path, 0755)
+		if absPath, absErr := filepath.Abs(path); absErr == nil {
+			path = absPath
+		}
 	}
 	return path, err
 }
 
 func (w *Web) newJob(wr http.ResponseWriter, r *http.Request) {
 	w.render(wr, "job_form", map[string]interface{}{
-		"Title": "New Job",
-		"Job":   &models.Job{RunnerType: models.RunnerTypeShell, Status: models.JobStatusEnabled, EnvVars: "{}"},
-		"PredefinedJobs": models.PredefinedJobsRegistry,
+		"Title":              "New Job",
+		"Job":                &models.Job{RunnerType: models.RunnerTypeShell, Status: models.JobStatusEnabled, EnvVars: "{}"},
+		"PredefinedJobs":     models.PredefinedJobsRegistry,
 		"PredefinedJobsData": getPredefinedJobsData(),
 	})
 }
@@ -214,7 +217,7 @@ func (w *Web) createJob(wr http.ResponseWriter, r *http.Request) {
 	if job.PredefinedJobID != "" {
 		scriptContent := r.FormValue("script_content")
 		if scriptContent != "" {
-			if path, err := saveJobScript(job.ID, scriptContent); err == nil {
+			if path, err := w.saveJobScript(job.ID, scriptContent); err == nil {
 				job.ApplyPredefinedOverrides(path)
 				w.db.UpdateJob(job)
 			}
@@ -266,11 +269,11 @@ func (w *Web) editJob(wr http.ResponseWriter, r *http.Request) {
 	}
 
 	w.render(wr, "job_form", map[string]interface{}{
-		"Title": "Edit " + job.Name, 
-		"Job": job,
-		"PredefinedJobs": models.PredefinedJobsRegistry,
+		"Title":              "Edit " + job.Name,
+		"Job":                job,
+		"PredefinedJobs":     models.PredefinedJobsRegistry,
 		"PredefinedJobsData": getPredefinedJobsData(),
-		"CurrentScript": currentScript,
+		"CurrentScript":      currentScript,
 	})
 }
 
@@ -288,11 +291,11 @@ func (w *Web) updateJob(wr http.ResponseWriter, r *http.Request) {
 	job := w.parseJobForm(r)
 	job.ID = id
 	job.CreatedAt = existing.CreatedAt
-	
+
 	if job.PredefinedJobID != "" {
 		scriptContent := r.FormValue("script_content")
 		if scriptContent != "" {
-			if path, err := saveJobScript(job.ID, scriptContent); err == nil {
+			if path, err := w.saveJobScript(job.ID, scriptContent); err == nil {
 				job.ApplyPredefinedOverrides(path)
 			} else {
 				job.ApplyPredefinedOverrides("")
@@ -368,6 +371,31 @@ func (w *Web) deleteJob(wr http.ResponseWriter, r *http.Request) {
 		http.Error(wr, "invalid id", http.StatusBadRequest)
 		return
 	}
+
+	job, _ := w.db.GetJob(id)
+	if job != nil && job.PredefinedJobID != "" {
+		scriptName := fmt.Sprintf("job_%d_script.sh", id)
+		scriptPath := filepath.Clean(job.Command)
+
+		// Delete only generated predefined-job scripts to avoid removing template/builtin scripts.
+		candidates := []string{
+			filepath.Clean(filepath.Join("data", "scripts", scriptName)),
+			filepath.Clean(filepath.Join("/data", "scripts", scriptName)),
+		}
+		if abs, absErr := filepath.Abs(filepath.Join("data", "scripts", scriptName)); absErr == nil {
+			candidates = append(candidates, filepath.Clean(abs))
+		}
+
+		for _, candidate := range candidates {
+			if scriptPath == candidate {
+				if rmErr := os.Remove(scriptPath); rmErr != nil && !os.IsNotExist(rmErr) {
+					log.Printf("Failed to delete predefined script for job %d: %v", id, rmErr)
+				}
+				break
+			}
+		}
+	}
+
 	w.scheduler.RemoveJob(id)
 	w.db.DeleteJob(id)
 	http.Redirect(wr, r, "/", http.StatusSeeOther)
