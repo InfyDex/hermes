@@ -24,15 +24,6 @@
 </div>
 <div class="card">
     <form method="POST" action="{{ if .Job.ID }}/jobs/{{ .Job.ID }}/edit{{ else }}/jobs/new{{ end }}" onsubmit="return buildCron()">
-        <div class="form-group">
-            <label for="name">Job Name</label>
-            <input type="text" id="name" name="name" value="{{ .Job.Name }}" required placeholder="e.g. Nextcloud Cron">
-        </div>
-        <div class="form-group">
-            <label for="description">Description</label>
-            <textarea id="description" name="description" placeholder="What does this job do?">{{ .Job.Description }}</textarea>
-        </div>
-
         <!-- ── Job Type / Template Selector ────────────────────────────── -->
         <div class="form-group">
             <label for="predefined_job_id">Job Type</label>
@@ -45,6 +36,15 @@
                 {{ end }}
             </select>
             <small style="color:#8b949e">Selecting a system job locks runner and command settings.</small>
+        </div>
+
+        <div class="form-group">
+            <label for="name">Job Name</label>
+            <input type="text" id="name" name="name" value="{{ .Job.Name }}" required placeholder="e.g. Nextcloud Cron">
+        </div>
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" placeholder="What does this job do?">{{ .Job.Description }}</textarea>
         </div>
 
         <!-- ── Schedule Builder ────────────────────────────── -->
