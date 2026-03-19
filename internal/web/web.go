@@ -184,7 +184,7 @@ func getPredefinedJobsData() map[string]PredefinedJobData {
 
 func (w *Web) saveJobScript(jobID int64, content string) (string, error) {
 	scriptsDir := filepath.Join(string(filepath.Separator), "data", "scripts")
-	if err := os.MkdirAll(scriptsDir, 0755); err != nil {
+	if err := os.MkdirAll(scriptsDir, 0700); err != nil {
 		return "", err
 	}
 
@@ -192,9 +192,9 @@ func (w *Web) saveJobScript(jobID int64, content string) (string, error) {
 	normalizedContent = strings.ReplaceAll(normalizedContent, "\r", "\n")
 
 	path := filepath.Join(scriptsDir, fmt.Sprintf("job_%d_script.sh", jobID))
-	err := os.WriteFile(path, []byte(normalizedContent), 0755)
+	err := os.WriteFile(path, []byte(normalizedContent), 0700)
 	if err == nil {
-		_ = os.Chmod(path, 0755)
+		_ = os.Chmod(path, 0700)
 	}
 	return path, err
 }
