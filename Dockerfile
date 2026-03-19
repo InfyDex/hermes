@@ -12,10 +12,13 @@ RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o hermes ./cmd/server
 # --- Runtime ---
 FROM alpine:3.19
 
-RUN apk add --no-cache ca-certificates sqlite docker-cli tzdata
+RUN apk add --no-cache bash ca-certificates sqlite docker-cli tzdata
 
 WORKDIR /app
 COPY --from=builder /build/hermes /app/hermes
+
+COPY scripts /app/scripts
+RUN chmod +x /app/scripts/*.sh
 
 RUN mkdir -p /data/logs
 

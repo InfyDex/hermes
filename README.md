@@ -96,6 +96,8 @@ Executes your given command directly by talking to the Docker Daemon securely th
 ### 2. The Shell Runner
 Throws your command inside an Alpine `sh -c` shell. Required if you need to use boolean operators, piping output, or local variables.
 
+If your command explicitly uses bash syntax, run it with `bash your-script.sh` (the runtime image includes bash).
+
 **Example Use Case:**
 - Chaining updates: `docker restart nginx && echo "Ping successful" > /tmp/ping.txt`
 

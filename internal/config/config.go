@@ -91,6 +91,5 @@ func Load() (*Config, error) {
 	if envSMTPFrom := os.Getenv("HERMES_SMTP_FROM"); envSMTPFrom != "" {
 		cfg.Notify.SMTPFrom = envSMTPFrom
 	}
-
 	return cfg, nil
 }

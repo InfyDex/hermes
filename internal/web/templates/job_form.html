@@ -24,6 +24,20 @@
 </div>
 <div class="card">
     <form method="POST" action="{{ if .Job.ID }}/jobs/{{ .Job.ID }}/edit{{ else }}/jobs/new{{ end }}" onsubmit="return buildCron()">
+        <!-- ── Job Type / Template Selector ────────────────────────────── -->
+        <div class="form-group">
+            <label for="predefined_job_id">Job Type</label>
+            <select id="predefined_job_id" name="predefined_job_id" onchange="onPredefinedChange(true)">
+                <option value="">Custom Job (Manual Configuration)</option>
+                {{ if .PredefinedJobs }}
+                    {{ range $id, $pjob := .PredefinedJobs }}
+                        <option value="{{ $id }}" {{ if eq $.Job.PredefinedJobID $id }}selected{{ end }}>{{ $pjob.Name }} (System Job)</option>
+                    {{ end }}
+                {{ end }}
+            </select>
+            <small style="color:#8b949e">Selecting a system job locks runner and command settings.</small>
+        </div>
+
         <div class="form-group">
             <label for="name">Job Name</label>
             <input type="text" id="name" name="name" value="{{ .Job.Name }}" required placeholder="e.g. Nextcloud Cron">
@@ -151,7 +165,26 @@
                 <input type="number" id="timeout" name="timeout" value="{{ .Job.Timeout }}" min="0">
             </div>
         </div>
-        <div class="form-group">
+
+        <div id="predefined_data" style="display:none;">
+        {{ if .PredefinedJobsData }}
+        {{ range $id, $pjob := .PredefinedJobsData }}
+            <div id="pjob_{{ $id }}">
+                <span class="pname">{{ $pjob.Name }}</span>
+                <span class="pdesc">{{ $pjob.Description }}</span>
+                <textarea class="pscript">{{ $pjob.DefaultScript }}</textarea>
+            </div>
+        {{ end }}
+        {{ end }}
+        </div>
+
+        <div class="form-group" id="script_editor_group" style="display:none;">
+            <label>System Script Configuration</label>
+            <p style="font-size:12px;color:#8b949e;margin-bottom:8px;">You can view and modify the execution script below. Any changes will be cloned securely into your /data volume.</p>
+            <textarea id="script_content" name="script_content" rows="15" style="font-family:monospace;white-space:pre;overflow:auto;background:#0d1117;color:#c9d1d9;padding:12px;width:100%;border:1px solid #30363d;border-radius:6px;resize:vertical;">{{ .CurrentScript }}</textarea>
+        </div>
+
+        <div class="form-group" id="command_group">
             <label for="command">Command</label>
             <textarea id="command" name="command" required placeholder="echo hello world">{{ .Job.Command }}</textarea>
         </div>
@@ -391,8 +424,64 @@
     loadCronExpr(existingCron);
 })();
 
+// Toggle visibility/disabled state based on selected template
+window.onPredefinedChange = function (userChanged) {
+    var pSelect = document.getElementById('predefined_job_id');
+    if (!pSelect) return;
+    
+    var isPredefined = pSelect.value !== "";
+    var cmdGroup = document.getElementById('command_group');
+    var cmdBox = document.getElementById('command');
+    var runnerSel = document.getElementById('runner_type');
+    var workDirBox = document.getElementById('working_dir');
+    var scriptGroup = document.getElementById('script_editor_group');
+    var scriptBox = document.getElementById('script_content');
+    
+    if (isPredefined) {
+        var selectedId = pSelect.value;
+        var pjobDiv = document.getElementById('pjob_' + selectedId);
+        if (pjobDiv) {
+            var defaultName = pjobDiv.querySelector('.pname').textContent;
+            var defaultDesc = pjobDiv.querySelector('.pdesc').textContent;
+            var defaultScript = pjobDiv.querySelector('.pscript').value;
+
+            var nameField = document.getElementById('name');
+            var descField = document.getElementById('description');
+            
+            if (userChanged && (!nameField.value || nameField.value.trim() === '')) nameField.value = defaultName;
+            if (userChanged && (!descField.value || descField.value.trim() === '')) descField.value = defaultDesc;
+
+            if (!scriptBox.value.trim() || userChanged) {
+                scriptBox.value = defaultScript;
+            }
+        }
+
+        cmdGroup.style.display = 'none';
+        cmdBox.disabled = true;
+        runnerSel.disabled = true;
+        workDirBox.disabled = true;
+        
+        scriptGroup.style.display = 'block';
+    } else {
+        cmdGroup.style.display = 'block';
+        cmdBox.disabled = false;
+        runnerSel.disabled = false;
+        workDirBox.disabled = false;
+        scriptGroup.style.display = 'none';
+    }
+};
+
+window.onPredefinedChange();
+
 // Called on form submit — ensures hidden field is set
 window.buildCron = function () {
+    // If predefined, the server handles fields, but disabled inputs are not submitted.
+    // However, server parseJobForm uses FormValue which might miss disabled ones.
+    // For predefined, we re-enable just before submit, or the server just ignores these.
+    document.getElementById('runner_type').disabled = false;
+    document.getElementById('command').disabled = false;
+    document.getElementById('working_dir').disabled = false;
+
     var expr = document.getElementById('cron_expr').value.trim();
     if (!expr) {
         alert('Please configure a schedule.');

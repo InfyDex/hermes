@@ -1,6 +1,9 @@
 {{ define "content" }}
 <div class="top-bar">
-    <h2>{{ .Job.Name }}</h2>
+    <h2>
+        {{ .Job.Name }}
+        {{ if .Job.PredefinedJobID }}<span class="badge" style="background-color:#1f6feb;margin-left:8px;font-size:12px;vertical-align:middle">System</span>{{ end }}
+    </h2>
     <div class="actions">
         <form method="POST" action="/jobs/{{ .Job.ID }}/toggle" style="display:inline;margin:0">
             {{ if eq (printf "%s" .Job.Status) "enabled" }}

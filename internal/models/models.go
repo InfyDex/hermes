@@ -20,12 +20,13 @@ const (
 )
 
 type Job struct {
-	ID            int64      `json:"id"`
-	Name          string     `json:"name"`
-	Description   string     `json:"description"`
-	CronExpr      string     `json:"cron_expr"`
-	RunnerType    RunnerType `json:"runner_type"`
-	Command       string     `json:"command"`
+	ID              int64      `json:"id"`
+	PredefinedJobID string     `json:"predefined_job_id"`
+	Name            string     `json:"name"`
+	Description     string     `json:"description"`
+	CronExpr        string     `json:"cron_expr"`
+	RunnerType      RunnerType `json:"runner_type"`
+	Command         string     `json:"command"`
 	WorkingDir    string     `json:"working_dir"`
 	EnvVars       string     `json:"env_vars"`
 	Timeout       int        `json:"timeout"`
