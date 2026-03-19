@@ -374,7 +374,12 @@ func (w *Web) deleteJob(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job, _ := w.db.GetJob(id)
+	job, err := w.db.GetJob(id)
+	if err != nil {
+		log.Printf("Failed to get job %d: %v", id, err)
+		http.Error(wr, "failed to load job", http.StatusInternalServerError)
+		return
+	}
 	if job != nil && job.PredefinedJobID != "" {
 		scriptName := fmt.Sprintf("job_%d_script.sh", id)
 		scriptPath := filepath.Clean(job.Command)
