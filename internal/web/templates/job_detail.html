@@ -29,7 +29,7 @@
         </td></tr>
         <tr><th>Schedule</th><td><code>{{ .Job.CronExpr }}</code></td></tr>
         <tr><th>Runner</th><td>{{ .Job.RunnerType }}</td></tr>
-        <tr><th>Command</th><td><code>{{ .Job.Command }}</code></td></tr>
+        <tr><th>Command</th><td><code class="code-wrap">{{ .Job.Command }}</code></td></tr>
         {{ if .Job.WorkingDir }}<tr><th>Working Dir</th><td>{{ .Job.WorkingDir }}</td></tr>{{ end }}
         <tr><th>Timeout</th><td>{{ if .Job.Timeout }}{{ .Job.Timeout }}s{{ else }}None{{ end }}</td></tr>
         <tr><th>Parallel Runs</th><td>{{ if .Job.AllowParallel }}Yes{{ else }}No{{ end }}</td></tr>
