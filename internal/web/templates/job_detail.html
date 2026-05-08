@@ -1,6 +1,9 @@
 {{ define "content" }}
 <div class="top-bar">
-    <h2>{{ .Job.Name }}</h2>
+    <div class="top-bar-title">
+        <a href="/" class="btn btn-back-icon" title="Back" aria-label="Back">&#8592;</a>
+        <h2>{{ .Job.Name }}</h2>
+    </div>
     <div class="actions">
         <form method="POST" action="/jobs/{{ .Job.ID }}/toggle" style="display:inline;margin:0">
             {{ if eq (printf "%s" .Job.Status) "enabled" }}
@@ -16,7 +19,6 @@
         <form method="POST" action="/jobs/{{ .Job.ID }}/delete" style="display:inline;margin:0" onsubmit="return confirm('Delete this job?')">
             <button type="submit" class="btn btn-danger">Delete</button>
         </form>
-        <a href="/" class="btn">Back</a>
     </div>
 </div>
 <div class="card">
