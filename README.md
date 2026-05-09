@@ -5,7 +5,7 @@
 
 A beautifully lightweight, self-hosted cron scheduler with a simple Web UI and direct Docker integration. Built perfectly for OpenMediaVault, Unraid, Raspberry Pis, and single-server homelab environments.
 
-![Hermes Dashboard Preview](assets/icons/hermes.png) <!-- Will render the logo if placed in the root's `assets/` relative path, or you can update with an actual screenshot! -->
+<img width="1319" height="371" alt="image" src="https://github.com/user-attachments/assets/f27a405b-7fc3-47db-8d76-547d351d2d47" /> <br>
 
 Say goodbye to messy host-machine `crontab` files, and manage all your automated server tasks, backups, and container reboots from one clean dashboard.
 
