@@ -20,8 +20,8 @@
 
 <div class="top-bar">
     <div class="top-bar-title">
-        <a href="/" class="btn btn-back-icon" title="Back" aria-label="Back">&#8592;</a>
-        <h2 style="margin-bottom:0">{{ if .Job.ID }}Edit Job{{ else }}New Job{{ end }}</h2>
+        <a href="/" class="btn btn-back-icon" aria-label="Back"><span aria-hidden="true">&larr;</span></a>
+        <h2 class="top-bar-heading">{{ if .Job.ID }}Edit Job{{ else }}New Job{{ end }}</h2>
     </div>
 </div>
 <div class="card">
