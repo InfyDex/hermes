@@ -19,8 +19,10 @@
 </style>
 
 <div class="top-bar">
-    <h2>{{ if .Job.ID }}Edit Job{{ else }}New Job{{ end }}</h2>
-    <a href="/" class="btn">Back</a>
+    <div class="top-bar-title">
+        <a href="/" class="btn btn-back-icon" aria-label="Back"><span aria-hidden="true">&larr;</span></a>
+        <h2 class="top-bar-heading">{{ if .Job.ID }}Edit Job{{ else }}New Job{{ end }}</h2>
+    </div>
 </div>
 <div class="card">
     <form method="POST" action="{{ if .Job.ID }}/jobs/{{ .Job.ID }}/edit{{ else }}/jobs/new{{ end }}" onsubmit="return buildCron()">

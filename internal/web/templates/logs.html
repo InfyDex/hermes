@@ -1,8 +1,10 @@
 {{ define "content" }}
 <div class="top-bar">
-    <h2>Execution #{{ .Execution.ID }} - {{ .Execution.JobName }}</h2>
+    <div class="top-bar-title">
+        <a href="/jobs/{{ .Execution.JobID }}" class="btn btn-back-icon" aria-label="Back to Job"><span aria-hidden="true">&larr;</span></a>
+        <h2 class="top-bar-heading">Execution #{{ .Execution.ID }} - {{ .Execution.JobName }}</h2>
+    </div>
     <div class="actions">
-        <a href="/jobs/{{ .Execution.JobID }}" class="btn">Back to Job</a>
         {{ if eq (printf "%s" .Execution.Status) "running" }}
             <form method="POST" action="/executions/{{ .Execution.ID }}/cancel" style="display:inline;margin:0">
                 <button type="submit" class="btn btn-danger">Cancel</button>
