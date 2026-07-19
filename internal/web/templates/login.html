@@ -43,6 +43,7 @@
             {{ end }}
 
             <form method="POST" action="/login">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
                 <input type="hidden" name="next" value="{{ .Next }}">
                 <div class="form-group">
                     <label for="username">Username</label>

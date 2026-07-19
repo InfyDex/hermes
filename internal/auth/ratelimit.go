@@ -1,9 +1,6 @@
 package auth
 
 import (
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/hex"
 	"net/http"
 	"strings"
 	"sync"
@@ -41,10 +38,10 @@ func (l *LoginRateLimiter) Allow(ip string) bool {
 	if !ok {
 		return true
 	}
-	if now.Before(att.lockedUntil) {
+	if att.failures >= maxLoginFailures && now.Before(att.lockedUntil) {
 		return false
 	}
-	if att.failures >= maxLoginFailures {
+	if att.failures >= maxLoginFailures && !now.Before(att.lockedUntil) {
 		delete(l.attempts, ip)
 	}
 	return true
@@ -56,7 +53,7 @@ func (l *LoginRateLimiter) RecordFailure(ip string) {
 
 	att, ok := l.attempts[ip]
 	if !ok {
-		l.attempts[ip] = &loginAttempt{failures: 1, lockedUntil: time.Now().Add(loginLockout)}
+		l.attempts[ip] = &loginAttempt{failures: 1}
 		return
 	}
 	att.failures++
@@ -71,13 +68,15 @@ func (l *LoginRateLimiter) Reset(ip string) {
 	delete(l.attempts, ip)
 }
 
-func ClientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.Split(xff, ",")
-		return strings.TrimSpace(parts[0])
-	}
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return strings.TrimSpace(xri)
+func ClientIP(r *http.Request, trustProxy bool) string {
+	if trustProxy {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			parts := strings.Split(xff, ",")
+			return strings.TrimSpace(parts[0])
+		}
+		if xri := r.Header.Get("X-Real-IP"); xri != "" {
+			return strings.TrimSpace(xri)
+		}
 	}
 	host, _, err := netSplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -98,21 +97,4 @@ func netSplitHostPort(addr string) (string, string, error) {
 		return host, port, nil
 	}
 	return addr, "", nil
-}
-
-// CSRF token helpers stored in session cookie payload.
-func GenerateCSRFToken() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
-}
-
-func GenerateSessionID() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
 }

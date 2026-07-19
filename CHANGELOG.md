@@ -19,6 +19,7 @@
 ### ⚠️ Breaking Changes
 * **New required env var:** `HERMES_SESSION_SECRET` — generate with `openssl rand -hex 32`.
 * Notification endpoints moved: `/api/notifications` → `/notifications`, `/api/notifications/read` → `/notifications/read`.
+* Live log polling moved: `/api/executions/{id}/logs` → `/executions/{id}/logs/stream` (session-protected web route).
 
 ---
 

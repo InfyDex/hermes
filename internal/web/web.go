@@ -38,17 +38,19 @@ type Web struct {
 	session   *auth.SessionStore
 	limiter   *auth.LoginRateLimiter
 	authCfg   *config.AuthConfig
+	trustProxy bool
 }
 
-func New(db *database.DB, sched *scheduler.Scheduler, exec *executor.Executor, session *auth.SessionStore, limiter *auth.LoginRateLimiter, authCfg *config.AuthConfig) *Web {
+func New(db *database.DB, sched *scheduler.Scheduler, exec *executor.Executor, session *auth.SessionStore, limiter *auth.LoginRateLimiter, authCfg *config.AuthConfig, trustProxy bool) *Web {
 	w := &Web{
-		db:        db,
-		scheduler: sched,
-		executor:  exec,
-		templates: make(map[string]*template.Template),
-		session:   session,
-		limiter:   limiter,
-		authCfg:   authCfg,
+		db:         db,
+		scheduler:  sched,
+		executor:   exec,
+		templates:  make(map[string]*template.Template),
+		session:    session,
+		limiter:    limiter,
+		authCfg:    authCfg,
+		trustProxy: trustProxy,
 	}
 	w.loadTemplates()
 	return w
@@ -167,11 +169,18 @@ func (w *Web) loginPage(wr http.ResponseWriter, r *http.Request) {
 		http.Redirect(wr, r, "/", http.StatusSeeOther)
 		return
 	}
+	secure := w.session.IsSecureRequest(r)
+	csrf, err := auth.SetLoginCSRF(wr, secure)
+	if err != nil {
+		http.Error(wr, "failed to prepare login", http.StatusInternalServerError)
+		return
+	}
 	w.renderLogin(wr, map[string]interface{}{
-		"Title":    "Sign In",
-		"Next":     r.URL.Query().Get("next"),
-		"Error":    "",
-		"Username": "",
+		"Title":     "Sign In",
+		"Next":      r.URL.Query().Get("next"),
+		"Error":     "",
+		"Username":  "",
+		"CSRFToken": csrf,
 	})
 }
 
@@ -181,15 +190,16 @@ func (w *Web) loginSubmit(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := auth.ClientIP(r)
+	secure := w.session.IsSecureRequest(r)
+	if !auth.ValidateLoginCSRF(r) {
+		w.renderLoginWithCSRF(wr, r, "Invalid username or password", r.FormValue("username"), r.FormValue("next"))
+		return
+	}
+
+	ip := auth.ClientIP(r, w.trustProxy)
 	if !w.limiter.Allow(ip) {
 		wr.WriteHeader(http.StatusTooManyRequests)
-		w.renderLogin(wr, map[string]interface{}{
-			"Title":    "Sign In",
-			"Next":     auth.SafeRedirect(r.FormValue("next")),
-			"Error":    "Invalid username or password",
-			"Username": r.FormValue("username"),
-		})
+		w.renderLoginWithCSRF(wr, r, "Invalid username or password", r.FormValue("username"), r.FormValue("next"))
 		return
 	}
 
@@ -200,16 +210,12 @@ func (w *Web) loginSubmit(wr http.ResponseWriter, r *http.Request) {
 
 	if !auth.ValidCredentials(w.authCfg, username, password) {
 		w.limiter.RecordFailure(ip)
-		w.renderLogin(wr, map[string]interface{}{
-			"Title":    "Sign In",
-			"Next":     next,
-			"Error":    "Invalid username or password",
-			"Username": username,
-		})
+		w.renderLoginWithCSRF(wr, r, "Invalid username or password", username, next)
 		return
 	}
 
 	w.limiter.Reset(ip)
+	auth.ClearLoginCSRF(wr, secure)
 	session, err := w.session.NewSession(username, remember)
 	if err != nil {
 		http.Error(wr, "failed to create session", http.StatusInternalServerError)
@@ -220,6 +226,22 @@ func (w *Web) loginSubmit(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(wr, r, next, http.StatusSeeOther)
+}
+
+func (w *Web) renderLoginWithCSRF(wr http.ResponseWriter, r *http.Request, errMsg, username, next string) {
+	secure := w.session.IsSecureRequest(r)
+	csrf, err := auth.SetLoginCSRF(wr, secure)
+	if err != nil {
+		http.Error(wr, "failed to prepare login", http.StatusInternalServerError)
+		return
+	}
+	w.renderLogin(wr, map[string]interface{}{
+		"Title":     "Sign In",
+		"Next":      next,
+		"Error":     errMsg,
+		"Username":  username,
+		"CSRFToken": csrf,
+	})
 }
 
 func (w *Web) logout(wr http.ResponseWriter, r *http.Request) {
@@ -253,6 +275,7 @@ func (w *Web) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/jobs/{id}/toggle", w.toggleJob).Methods("POST")
 	r.HandleFunc("/jobs/{id}/delete", w.deleteJob).Methods("POST")
 	r.HandleFunc("/executions/{id}/logs", w.viewLogs).Methods("GET")
+	r.HandleFunc("/executions/{id}/logs/stream", w.streamExecutionLogs).Methods("GET")
 	r.HandleFunc("/executions/{id}/cancel", w.cancelExecution).Methods("POST")
 	r.HandleFunc("/logout", w.logout).Methods("POST")
 
@@ -532,6 +555,26 @@ func (w *Web) viewLogs(wr http.ResponseWriter, r *http.Request) {
 	w.renderPage(wr, r, "logs", map[string]interface{}{
 		"Title": fmt.Sprintf("Execution #%d", exec.ID), "Execution": exec, "Logs": logs,
 	})
+}
+
+func (w *Web) streamExecutionLogs(wr http.ResponseWriter, r *http.Request) {
+	id, err := webParseID(r)
+	if err != nil {
+		http.Error(wr, "invalid id", http.StatusBadRequest)
+		return
+	}
+	exec, err := w.db.GetExecution(id)
+	if err != nil || exec == nil {
+		http.Error(wr, "not found", http.StatusNotFound)
+		return
+	}
+	data, err := os.ReadFile(exec.LogPath)
+	if err != nil {
+		http.Error(wr, "log file not found", http.StatusNotFound)
+		return
+	}
+	wr.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	wr.Write(data)
 }
 
 func (w *Web) cancelExecution(wr http.ResponseWriter, r *http.Request) {

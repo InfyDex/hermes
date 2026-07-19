@@ -78,7 +78,7 @@ func main() {
 	root := mux.NewRouter()
 
 	apiHandler := api.New(db, sched, exec)
-	webHandler := web.New(db, sched, exec, sessionStore, limiter, &cfg.Auth)
+	webHandler := web.New(db, sched, exec, sessionStore, limiter, &cfg.Auth, cfg.Server.TrustProxy)
 
 	webHandler.RegisterPublicRoutes(root)
 	apiRouter := root.PathPrefix("/api").Subrouter()

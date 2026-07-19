@@ -17,9 +17,10 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port       int
-	DomainURL  string
-	ServerName string
+	Port        int
+	DomainURL   string
+	ServerName  string
+	TrustProxy  bool
 }
 
 type NotifyConfig struct {
@@ -91,6 +92,9 @@ func Load() (*Config, error) {
 	}
 	if os.Getenv("HERMES_SECURE_COOKIES") == "true" {
 		cfg.Session.SecureCookies = true
+	}
+	if os.Getenv("HERMES_TRUST_PROXY") == "true" {
+		cfg.Server.TrustProxy = true
 	}
 	if len(cfg.Session.Secret) < 32 {
 		return nil, fmt.Errorf("HERMES_SESSION_SECRET is required and must be at least 32 bytes")

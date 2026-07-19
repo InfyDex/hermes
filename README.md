@@ -95,6 +95,7 @@ Hermes uses two authentication methods:
 | `HERMES_SESSION_TTL` | No | `24h` | Normal session lifetime |
 | `HERMES_SESSION_REMEMBER_TTL` | No | `720h` | Remember-me session lifetime (30 days) |
 | `HERMES_SECURE_COOKIES` | No | `false` | Set to `true` when serving over HTTPS |
+| `HERMES_TRUST_PROXY` | No | `false` | Trust `X-Forwarded-For` / `X-Real-IP` for login rate limiting (enable behind reverse proxy) |
 
 ---
 

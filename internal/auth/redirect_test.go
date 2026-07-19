@@ -15,7 +15,7 @@ func TestSafeRedirect(t *testing.T) {
 		{"/%2f%2fevil.com", "/"},
 		{"/login", "/"},
 		{"/login?next=/", "/"},
-		{"https://evil.com", "/"},
+		{"/%252f%252fevil.com", "/"},
 		{"/jobs/" + string(make([]byte, 513)), "/"},
 	}
 

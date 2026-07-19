@@ -141,11 +141,18 @@ func TestSessionMiddlewareAPIRequest(t *testing.T) {
 func TestLoginRateLimiter(t *testing.T) {
 	limiter := NewLoginRateLimiter()
 	ip := "127.0.0.1"
-	for i := 0; i < maxLoginFailures; i++ {
+	if !limiter.Allow(ip) {
+		t.Fatal("expected first attempt allowed")
+	}
+	limiter.RecordFailure(ip)
+	if !limiter.Allow(ip) {
+		t.Error("expected second attempt allowed after single failure")
+	}
+	for i := 0; i < maxLoginFailures-1; i++ {
 		limiter.RecordFailure(ip)
 	}
 	if limiter.Allow(ip) {
-		t.Error("expected IP to be locked out")
+		t.Error("expected IP to be locked out after max failures")
 	}
 	limiter.Reset(ip)
 	if !limiter.Allow(ip) {
