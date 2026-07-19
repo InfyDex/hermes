@@ -94,14 +94,22 @@ func (m *Manager) defaultNodeID() string {
 	if m.fleet.NodeID != "" {
 		return m.fleet.NodeID
 	}
+	var base string
 	if m.server.ServerName != "" {
-		return sanitizeID(m.server.ServerName)
+		base = sanitizeID(m.server.ServerName)
+	} else {
+		host, err := os.Hostname()
+		if err != nil || host == "" {
+			base = "hermes-node"
+		} else {
+			base = sanitizeID(host)
+		}
 	}
-	host, err := os.Hostname()
-	if err != nil || host == "" {
-		return "hermes-node"
+	suffix, err := generateSecret()
+	if err != nil {
+		return base
 	}
-	return sanitizeID(host)
+	return base + "-" + suffix[:8]
 }
 
 func (m *Manager) defaultName(nodeID string) string {

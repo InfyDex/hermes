@@ -149,14 +149,13 @@ func (db *DB) UpsertPeer(p *models.Peer) error {
 		if existing != nil {
 			p.ID = existing.ID
 			p.CreatedAt = existing.CreatedAt
+			if _, err := db.conn.Exec(`DELETE FROM peers WHERE node_id = ? AND id != ?`, p.NodeID, p.ID); err != nil {
+				return err
+			}
 			_, err := db.conn.Exec(`
 				UPDATE peers SET name=?, address=?, peer_secret=?, status=?, last_seen_at=?
 				WHERE id=?`,
 				p.Name, p.Address, p.PeerSecret, p.Status, p.LastSeenAt, p.ID)
-			if err != nil {
-				return err
-			}
-			_, err = db.conn.Exec(`DELETE FROM peers WHERE node_id = ? AND id != ?`, p.NodeID, p.ID)
 			return err
 		}
 	}

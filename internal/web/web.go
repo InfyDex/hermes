@@ -315,7 +315,10 @@ func (w *Web) dashboard(wr http.ResponseWriter, r *http.Request) {
 			jobs[i].NextRunAt = next
 		}
 	}
-	fleetResp, _ := w.fleet.ListPeersResponse()
+	fleetResp, err := w.fleet.ListPeersResponse()
+	if err != nil || fleetResp == nil {
+		fleetResp = &models.FleetPeersResponse{Peers: []models.Peer{}}
+	}
 	local, _ := w.fleet.LocalSettings()
 	w.renderPage(wr, r, "dashboard", map[string]interface{}{
 		"Title":       "Dashboard",
