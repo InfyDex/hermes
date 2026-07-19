@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/hermes-scheduler/hermes/internal/auth"
 	"github.com/hermes-scheduler/hermes/internal/models"
 )
 
@@ -56,12 +57,13 @@ func (a *API) fleetHandshake(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) fleetHeartbeat(w http.ResponseWriter, r *http.Request) {
+	token := auth.BearerToken(r.Header.Get("Authorization"))
 	var payload models.FleetPeerPayload
 	if err := decodeFleetBody(w, r, &payload); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := a.fleet.HandleHeartbeat(payload); err != nil {
+	if err := a.fleet.HandleHeartbeat(token, payload); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}

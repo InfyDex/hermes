@@ -20,6 +20,7 @@ import (
 	"github.com/hermes-scheduler/hermes/internal/database"
 	"github.com/hermes-scheduler/hermes/internal/models"
 	"github.com/hermes-scheduler/hermes/internal/notifier"
+	"github.com/hermes-scheduler/hermes/internal/auth"
 )
 
 const (
@@ -282,18 +283,18 @@ func (m *Manager) HandleHandshake(payload models.FleetPeerPayload) (models.Fleet
 	return m.LocalNodeInfo()
 }
 
-func (m *Manager) HandleHeartbeat(payload models.FleetPeerPayload) error {
-	payload.NodeID = strings.TrimSpace(payload.NodeID)
-	if payload.NodeID == "" {
-		return fmt.Errorf("node_id is required")
-	}
-
-	peer, err := m.db.GetPeerByNodeID(payload.NodeID)
+func (m *Manager) HandleHeartbeat(token string, payload models.FleetPeerPayload) error {
+	peer, err := m.peerBySecret(token)
 	if err != nil {
 		return err
 	}
 	if peer == nil {
 		return fmt.Errorf("unknown peer")
+	}
+
+	payload.NodeID = strings.TrimSpace(payload.NodeID)
+	if payload.NodeID != "" && payload.NodeID != peer.NodeID {
+		return fmt.Errorf("node_id mismatch")
 	}
 
 	now := time.Now().UTC()
@@ -309,7 +310,33 @@ func (m *Manager) HandleHeartbeat(payload models.FleetPeerPayload) error {
 	}
 	peer.Status = models.PeerStatusOnline
 	peer.LastSeenAt = &now
-	return m.db.UpsertPeer(peer)
+	if err := m.db.UpsertPeer(peer); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	m.missCounts[peer.ID] = 0
+	m.mu.Unlock()
+	return nil
+}
+
+func (m *Manager) AuthenticatePeerSecret(token string) bool {
+	peer, err := m.peerBySecret(token)
+	return err == nil && peer != nil
+}
+
+func (m *Manager) peerBySecret(secret string) (*models.Peer, error) {
+	peers, err := m.db.ListPeers()
+	if err != nil {
+		return nil, err
+	}
+	var matched *models.Peer
+	for i := range peers {
+		if auth.SafeSecretEqual(secret, peers[i].PeerSecret) {
+			p := peers[i]
+			matched = &p
+		}
+	}
+	return matched, nil
 }
 
 func (m *Manager) UpdateLocal(name string, regenerateSecret bool) (*models.NodeSettings, error) {
@@ -387,18 +414,25 @@ func (m *Manager) checkPeers() {
 	}
 
 	for _, peer := range peers {
-		m.pingPeer(peer, payload)
+		m.pingPeer(peer, local, payload)
 	}
 }
 
-func (m *Manager) pingPeer(peer models.Peer, payload models.FleetPeerPayload) {
-	err := m.postPeer(addressJoin(peer.Address, "/api/fleet/heartbeat"), peer.PeerSecret, payload)
+func (m *Manager) pingPeer(peer models.Peer, local *models.NodeSettings, payload models.FleetPeerPayload) {
+	err := m.postPeer(addressJoin(peer.Address, "/api/fleet/heartbeat"), local.PeerSecret, payload)
 	now := time.Now().UTC()
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if err != nil {
+		current, loadErr := m.db.GetPeer(peer.ID)
+		if loadErr == nil && current != nil && current.LastSeenAt != nil {
+			grace := heartbeatInterval * time.Duration(offlineThreshold)
+			if time.Since(*current.LastSeenAt) < grace {
+				return
+			}
+		}
 		m.missCounts[peer.ID]++
 		if m.missCounts[peer.ID] >= offlineThreshold {
 			m.setPeerStatusLocked(peer, models.PeerStatusOffline, peer.LastSeenAt)

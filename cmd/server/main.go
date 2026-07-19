@@ -100,7 +100,7 @@ func main() {
 		return secret
 	}
 	apiRouter.Handle("/fleet/handshake", auth.PeerAuthMiddleware(peerSecret)(http.HandlerFunc(apiHandler.FleetHandshake))).Methods("POST")
-	apiRouter.Handle("/fleet/heartbeat", auth.PeerAuthMiddleware(peerSecret)(http.HandlerFunc(apiHandler.FleetHeartbeat))).Methods("POST")
+	apiRouter.Handle("/fleet/heartbeat", auth.PeerHeartbeatMiddleware(fleetMgr.AuthenticatePeerSecret)(http.HandlerFunc(apiHandler.FleetHeartbeat))).Methods("POST")
 
 	adminAPI := apiRouter.PathPrefix("").Subrouter()
 	adminAPI.Use(auth.BasicAuthMiddleware(&cfg.Auth))

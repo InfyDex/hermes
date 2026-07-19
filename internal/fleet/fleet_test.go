@@ -31,7 +31,7 @@ func setupNode(t *testing.T, nodeID string) (*httptest.Server, *fleet.Manager, s
 	apiHandler.RegisterFleetPublicRoutes(apiRouter)
 	secret, _ := mgr.PeerSecret()
 	apiRouter.Handle("/fleet/handshake", auth.PeerAuthMiddleware(func() string { return secret })(http.HandlerFunc(apiHandler.FleetHandshake))).Methods("POST")
-	apiRouter.Handle("/fleet/heartbeat", auth.PeerAuthMiddleware(func() string { return secret })(http.HandlerFunc(apiHandler.FleetHeartbeat))).Methods("POST")
+	apiRouter.Handle("/fleet/heartbeat", auth.PeerHeartbeatMiddleware(mgr.AuthenticatePeerSecret)(http.HandlerFunc(apiHandler.FleetHeartbeat))).Methods("POST")
 
 	server := httptest.NewServer(router)
 	t.Cleanup(server.Close)

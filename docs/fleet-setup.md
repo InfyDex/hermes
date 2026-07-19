@@ -71,6 +71,7 @@ POST /api/fleet/handshake
 → { "node_id": "node-b", "name": "Node B", "address": "https://hermes-b.example.com" }
 
 POST /api/fleet/heartbeat
+Authorization: Bearer <this_node_peer_secret>
 {
   "node_id": "node-a",
   "name": "Node A",
