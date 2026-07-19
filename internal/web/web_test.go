@@ -19,13 +19,14 @@ import (
 
 func newTestWeb(t *testing.T) (*mux.Router, *auth.SessionStore, *testutil.WebDeps) {
 	t.Helper()
-	db, exec, sched, _ := testutil.TestStack(t)
+	db, exec, sched, notif := testutil.TestStack(t)
 	_ = sched.Start()
 	t.Cleanup(func() { sched.Stop() })
 
 	store := testutil.TestSessionStore(t)
 	limiter := auth.NewLoginRateLimiter()
-	w := web.New(db, sched, exec, store, limiter, testutil.TestAuthConfig(), false)
+	fleetMgr := testutil.TestFleetManager(t, db, notif)
+	w := web.New(db, sched, exec, fleetMgr, store, limiter, testutil.TestAuthConfig(), testutil.TestServerConfig(), false)
 
 	root := mux.NewRouter()
 	w.RegisterPublicRoutes(root)

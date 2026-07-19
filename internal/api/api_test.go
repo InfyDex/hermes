@@ -22,14 +22,16 @@ import (
 
 func newTestAPI(t *testing.T) (*mux.Router, *database.DB, *executor.Executor) {
 	t.Helper()
-	db, exec, sched, _ := testutil.TestStack(t)
+	db, exec, sched, notif := testutil.TestStack(t)
 	_ = sched.Start()
 	t.Cleanup(func() { sched.Stop() })
 
-	apiHandler := api.New(db, sched, exec)
+	fleetMgr := testutil.TestFleetManager(t, db, notif)
+	apiHandler := api.New(db, sched, exec, fleetMgr)
 	router := mux.NewRouter()
 	router.Use(auth.BasicAuthMiddleware(testutil.TestAuthConfig()))
 	apiHandler.RegisterRoutes(router)
+	apiHandler.RegisterFleetRoutes(router)
 	return router, db, exec
 }
 
@@ -128,10 +130,11 @@ func TestAPIValidationErrors(t *testing.T) {
 }
 
 func TestAPIUnauthorized(t *testing.T) {
-	db, exec, sched, _ := testutil.TestStack(t)
+	db, exec, sched, notif := testutil.TestStack(t)
 	_ = sched.Start()
 	t.Cleanup(func() { sched.Stop() })
-	apiHandler := api.New(db, sched, exec)
+	fleetMgr := testutil.TestFleetManager(t, db, notif)
+	apiHandler := api.New(db, sched, exec, fleetMgr)
 	router := mux.NewRouter()
 	router.Use(auth.BasicAuthMiddleware(testutil.TestAuthConfig()))
 	apiHandler.RegisterRoutes(router)
@@ -228,8 +231,9 @@ func TestAPIGetJobWithNextRun(t *testing.T) {
 
 func newTestAPIWithSched(t *testing.T) (*mux.Router, *database.DB, *executor.Executor, *scheduler.Scheduler) {
 	t.Helper()
-	db, exec, sched, _ := testutil.TestStack(t)
-	apiHandler := api.New(db, sched, exec)
+	db, exec, sched, notif := testutil.TestStack(t)
+	fleetMgr := testutil.TestFleetManager(t, db, notif)
+	apiHandler := api.New(db, sched, exec, fleetMgr)
 	router := mux.NewRouter()
 	router.Use(auth.BasicAuthMiddleware(testutil.TestAuthConfig()))
 	apiHandler.RegisterRoutes(router)

@@ -1,0 +1,95 @@
+{{ define "content" }}
+<div class="top-bar">
+    <h2>Fleet Settings</h2>
+    <a href="/" class="btn">Back to Dashboard</a>
+</div>
+
+{{ if .FleetNotice }}
+<div class="card" style="border-color:#238636;margin-bottom:16px">
+    <p style="margin:0;color:#3fb950">{{ .FleetNotice }}</p>
+</div>
+{{ end }}
+{{ if .FleetError }}
+<div class="card" style="border-color:#da3633;margin-bottom:16px">
+    <p style="margin:0;color:#f85149">{{ .FleetError }}</p>
+</div>
+{{ end }}
+
+<div class="card">
+    <div class="card-header">
+        <h3 style="color:#f0f6fc;font-size:16px;margin:0">This Node</h3>
+    </div>
+    {{ if not .DomainURL }}
+    <p style="color:#d29922;font-size:13px">Set <code>HERMES_DOMAIN_URL</code> so other nodes can reach this instance.</p>
+    {{ end }}
+    <table>
+        <tr><th style="width:160px">Node ID</th><td><code>{{ .Node.NodeID }}</code></td></tr>
+        <tr><th>Display name</th><td>{{ .Node.Name }}</td></tr>
+        <tr><th>Public URL</th><td>{{ if .LocalAddr }}<code>{{ .LocalAddr }}</code>{{ else }}<span style="color:#8b949e">not set</span>{{ end }}</td></tr>
+        <tr>
+            <th>Peer secret</th>
+            <td>
+                <code id="peer-secret">{{ .Node.PeerSecret }}</code>
+                <button type="button" class="btn btn-sm" style="margin-left:8px" onclick="navigator.clipboard.writeText(document.getElementById('peer-secret').textContent)">Copy</button>
+                <p style="color:#8b949e;font-size:12px;margin:8px 0 0">Share this secret when another node connects to you. Keep it private.</p>
+            </td>
+        </tr>
+    </table>
+
+    <form method="POST" action="/fleet" style="margin-top:16px;padding-top:16px;border-top:1px solid #30363d">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <div style="margin-bottom:12px">
+            <label style="display:block;color:#8b949e;font-size:12px;margin-bottom:4px">Display name</label>
+            <input type="text" name="name" value="{{ .Node.Name }}" style="width:100%;max-width:400px">
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;color:#8b949e;font-size:13px;margin-bottom:12px">
+            <input type="checkbox" name="regenerate_secret" value="on">
+            Regenerate peer secret (breaks existing peer links until re-added)
+        </label>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 style="color:#f0f6fc;font-size:16px;margin:0">Connected Peers</h3>
+    </div>
+    {{ if not .Peers }}
+    <div class="empty-state">
+        <p>No peers connected. Add peers from the <a href="/">dashboard</a>.</p>
+    </div>
+    {{ else }}
+    <table>
+        <thead>
+            <tr><th>Name</th><th>Node ID</th><th>Status</th><th>Address</th><th></th></tr>
+        </thead>
+        <tbody>
+        {{ range .Peers }}
+            <tr>
+                <td>{{ .Name }}</td>
+                <td><code>{{ .NodeID }}</code></td>
+                <td><span class="badge badge-{{ peerStatusClass (printf "%s" .Status) }}">{{ .Status }}</span></td>
+                <td>{{ if .Address }}<a href="{{ .Address }}" target="_blank" rel="noopener">{{ .Address }}</a>{{ else }}—{{ end }}</td>
+                <td>
+                    <form method="POST" action="/fleet/peers/{{ .ID }}/delete" style="margin:0">
+                        <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+                    </form>
+                </td>
+            </tr>
+        {{ end }}
+        </tbody>
+    </table>
+    {{ end }}
+</div>
+
+<div class="card">
+    <h3 style="color:#f0f6fc;font-size:16px;margin:0 0 12px">How to connect nodes</h3>
+    <ol style="color:#8b949e;font-size:14px;line-height:1.6;margin:0;padding-left:20px">
+        <li>Set <code>HERMES_DOMAIN_URL</code> on each node to its reachable URL.</li>
+        <li>Copy this node's peer secret (above).</li>
+        <li>On the other Hermes instance, open the dashboard and add this node using its URL and secret.</li>
+        <li>Verify both nodes show a green <strong>online</strong> status within ~30 seconds.</li>
+    </ol>
+</div>
+{{ end }}

@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### ✨ New Features
+* **Fleet Phase 1:** Optional multi-node peer registry with heartbeat monitoring, online/offline detection, and alerts across web, Discord, and email.
+* **Fleet Dashboard:** View local node and connected peers with live status and last-seen timestamps.
+* **Fleet Settings:** Manage display name, copy/regenerate peer secret, and remove peers.
+* **Fleet API:** `GET /api/health`, peer-authenticated handshake/heartbeat, and admin CRUD under `/api/fleet/*`.
+
+### 📚 Documentation
+* Added [Fleet Setup Guide](docs/fleet-setup.md) with pairing steps, API reference, Docker example, and security notes.
+
+---
+
 ## v0.0.7
 
 ### ✨ New Features

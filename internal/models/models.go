@@ -80,3 +80,48 @@ type Notification struct {
 	CreatedAt time.Time `json:"created_at"`
 	IsRead    bool      `json:"is_read"`
 }
+
+type PeerStatus string
+
+const (
+	PeerStatusOnline  PeerStatus = "online"
+	PeerStatusOffline PeerStatus = "offline"
+	PeerStatusUnknown PeerStatus = "unknown"
+)
+
+type Peer struct {
+	ID         int64      `json:"id"`
+	NodeID     string     `json:"node_id"`
+	Name       string     `json:"name"`
+	Address    string     `json:"address"`
+	PeerSecret string     `json:"peer_secret,omitempty"`
+	Status     PeerStatus `json:"status"`
+	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+}
+
+type NodeSettings struct {
+	NodeID     string    `json:"node_id"`
+	Name       string    `json:"name"`
+	PeerSecret string    `json:"peer_secret"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+type FleetNodeInfo struct {
+	NodeID  string `json:"node_id"`
+	Name    string `json:"name"`
+	Address string `json:"address"`
+}
+
+type FleetPeerPayload struct {
+	NodeID     string `json:"node_id"`
+	Name       string `json:"name"`
+	Address    string `json:"address"`
+	PeerSecret string `json:"peer_secret,omitempty"`
+}
+
+type FleetPeersResponse struct {
+	Local  FleetNodeInfo `json:"local"`
+	Peers  []Peer        `json:"peers"`
+	Domain string        `json:"domain_url,omitempty"`
+}

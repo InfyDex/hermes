@@ -14,6 +14,11 @@ type Config struct {
 	Database DatabaseConfig
 	Logs     LogsConfig
 	Notify   NotifyConfig
+	Fleet    FleetConfig
+}
+
+type FleetConfig struct {
+	NodeID string
 }
 
 type ServerConfig struct {
@@ -104,6 +109,9 @@ func Load() (*Config, error) {
 	}
 	if envServerName := os.Getenv("HERMES_SERVER_NAME"); envServerName != "" {
 		cfg.Server.ServerName = envServerName
+	}
+	if envNodeID := os.Getenv("HERMES_NODE_ID"); envNodeID != "" {
+		cfg.Fleet.NodeID = envNodeID
 	}
 	if envDiscord := os.Getenv("HERMES_DISCORD_WEBHOOK_URL"); envDiscord != "" {
 		cfg.Notify.DiscordWebhookURL = envDiscord

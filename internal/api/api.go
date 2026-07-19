@@ -11,6 +11,7 @@ import (
 
 	"github.com/hermes-scheduler/hermes/internal/database"
 	"github.com/hermes-scheduler/hermes/internal/executor"
+	"github.com/hermes-scheduler/hermes/internal/fleet"
 	"github.com/hermes-scheduler/hermes/internal/models"
 	"github.com/hermes-scheduler/hermes/internal/scheduler"
 )
@@ -19,10 +20,11 @@ type API struct {
 	db        *database.DB
 	scheduler *scheduler.Scheduler
 	executor  *executor.Executor
+	fleet     *fleet.Manager
 }
 
-func New(db *database.DB, sched *scheduler.Scheduler, exec *executor.Executor) *API {
-	return &API{db: db, scheduler: sched, executor: exec}
+func New(db *database.DB, sched *scheduler.Scheduler, exec *executor.Executor, fleetMgr *fleet.Manager) *API {
+	return &API{db: db, scheduler: sched, executor: exec, fleet: fleetMgr}
 }
 
 func (a *API) RegisterRoutes(r *mux.Router) {

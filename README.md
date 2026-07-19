@@ -17,6 +17,7 @@ Say goodbye to messy host-machine `crontab` files, and manage all your automated
 - **Live Output Logs:** Watch your jobs execute in real-time right from the browser. Logs are cleanly rotated to plaintext files on disk.
 - **Overlap Prevention & Timeouts:** Prevent scripts from piling up by forcing single-threaded runs, or enforce hard time limits on hanging jobs.
 - **Micro Footprint:** A statically compiled Go binary running inside a ~15MB Alpine Docker container. Drops memory usage to virtually 0 at idle.
+- **Fleet (optional):** Connect multiple Hermes nodes to monitor each other's health, with web/Discord/email alerts on peer offline/online events. [Fleet Setup Guide](docs/fleet-setup.md)
 
 ---
 
@@ -51,8 +52,12 @@ services:
       
       # Optional: Identify which server this instance is running on (used in notification prefixes)
       - HERMES_SERVER_NAME=MyHomeServer
+
+      # Optional: Fleet node ID (defaults to HERMES_SERVER_NAME or hostname)
+      # - HERMES_NODE_ID=my-node
       
       # Optional: Enable clickable links within Discord/Email notifications
+      # Required for multi-node fleet (set to this instance's public URL)
       # - HERMES_DOMAIN_URL=https://hermes.example.com
       
       # Optional: Discord webhook configuration
@@ -97,6 +102,16 @@ Hermes uses two authentication methods:
 | `HERMES_SECURE_COOKIES` | No | `false` | Set to `true` when serving over HTTPS |
 | `HERMES_TRUST_PROXY` | No | `false` | Trust `X-Forwarded-For` / `X-Real-IP` for login rate limiting (enable behind reverse proxy) |
 
+### Fleet environment variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `HERMES_NODE_ID` | No | `HERMES_SERVER_NAME` or hostname | Stable identifier for this node in the fleet |
+| `HERMES_DOMAIN_URL` | No | — | Public URL of this instance (required to add peers behind NAT/proxy) |
+| `HERMES_SERVER_NAME` | No | — | Display name for this node in fleet UI and notifications |
+
+See [Fleet Setup Guide](docs/fleet-setup.md) for pairing instructions and API details.
+
 ---
 
 ## � Notifications & Alerts
@@ -137,6 +152,9 @@ Hermes boasts a fully capable REST API to trigger jobs externally (from things l
 |--------|----------|-------------|
 | POST | `/api/jobs/{id}/run` | Remotely trigger a job to run right now |
 | POST | `/api/executions/{id}/cancel` | Abort a running execution |
+| GET | `/api/health` | Fleet health check (no auth) |
+| GET | `/api/fleet/peers` | List connected peers and local node info |
+| POST | `/api/fleet/peers` | Add and handshake with a remote peer |
 | GET | `/api/jobs` | Dump list of all configured jobs |
 | GET | `/api/executions/{id}/logs` | Fetch the raw log stream |
 
@@ -157,6 +175,7 @@ internal/
   config/            Configuration loading
   database/          SQLite persistence layer
   executor/          Job execution engine
+  fleet/             Multi-node peer registry and heartbeat
   models/            Data models
   runners/           Pluggable runner interface + implementations
   scheduler/         Cron scheduler

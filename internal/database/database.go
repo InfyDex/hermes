@@ -106,7 +106,7 @@ func (db *DB) migrate() error {
 		db.conn.Exec(stmt) // ignore errors if columns already exist
 	}
 
-	return nil
+	return db.migrateFleet()
 }
 
 func (db *DB) ListJobs() ([]models.Job, error) {
