@@ -74,7 +74,7 @@
         <a href="/">Dashboard</a>
         <a href="/jobs/new">New Job</a>
         
-        <div style="margin-left: auto; display: flex; align-items: center;">
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 16px;">
             <div class="notifications-dropdown" id="notif-dropdown">
                 <button class="notif-bell" id="notif-bell" aria-label="Notifications">
                     🔔<span class="notif-badge" id="notif-badge" style="display: none;">0</span>
@@ -89,6 +89,10 @@
                     </div>
                 </div>
             </div>
+            <form method="POST" action="/logout" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <button type="submit" class="btn btn-sm" style="color:#8b949e;">Logout</button>
+            </form>
         </div>
     </nav>
     <div class="container">
@@ -165,7 +169,7 @@
 
             async function fetchNotifications() {
                 try {
-                    const res = await fetch('/api/notifications');
+                    const res = await fetch('/notifications');
                     if (res.ok) {
                         const data = await res.json();
                         notifications = data || [];
@@ -178,7 +182,7 @@
 
             async function markAllRead() {
                 try {
-                    await fetch('/api/notifications/read', { method: 'POST' });
+                    await fetch('/notifications/read', { method: 'POST' });
                     notifications.forEach(n => n.is_read = true);
                     renderNotifications();
                 } catch (err) {

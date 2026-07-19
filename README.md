@@ -42,6 +42,9 @@ services:
     environment:
       - TZ=Asia/Kolkata
       
+      # Required: Session signing secret (generate with: openssl rand -hex 32)
+      - HERMES_SESSION_SECRET=change-me-to-a-random-64-char-hex-string
+
       # Optional Override: Change the default 'admin' login credentials
       - HERMES_USERNAME=admin
       - HERMES_PASSWORD=admin
@@ -69,7 +72,29 @@ docker compose up -d
 ```
 
 **3. Open the UI:**
-Navigate to `http://YOUR_SERVER_IP:4376` and log in with your credentials.
+Navigate to `https://YOUR_SERVER_IP:4376` (or `http://` for local testing) and sign in via the Hermes login page.
+
+> **Security:** Use HTTPS in production (reverse proxy recommended). Login passwords are sent in the request body and must be protected in transit. The REST API continues to use HTTP Basic Auth for automation clients.
+
+---
+
+## 🔐 Authentication
+
+Hermes uses two authentication methods:
+
+| Surface | Method | Notes |
+|---------|--------|-------|
+| **Web UI** | Session cookie | Branded login page at `/login` with logout, remember-me, and signed cookies |
+| **REST API** (`/api/*`) | HTTP Basic Auth | Unchanged — use `curl -u user:pass` for scripts and integrations |
+
+### Session environment variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `HERMES_SESSION_SECRET` | **Yes** | — | Signing key for session cookies (min 32 bytes). Generate: `openssl rand -hex 32` |
+| `HERMES_SESSION_TTL` | No | `24h` | Normal session lifetime |
+| `HERMES_SESSION_REMEMBER_TTL` | No | `720h` | Remember-me session lifetime (30 days) |
+| `HERMES_SECURE_COOKIES` | No | `false` | Set to `true` when serving over HTTPS |
 
 ---
 
@@ -114,7 +139,7 @@ Hermes boasts a fully capable REST API to trigger jobs externally (from things l
 | GET | `/api/jobs` | Dump list of all configured jobs |
 | GET | `/api/executions/{id}/logs` | Fetch the raw log stream |
 
-*All endpoints require HTTP Basic Auth using your configured username and password.*
+*All API endpoints require HTTP Basic Auth using your configured username and password. The web UI uses a separate session cookie obtained via the login page.*
 
 **Trigger a job remotely:**
 ```bash
@@ -126,7 +151,8 @@ curl -u admin:YOUR_PASSWORD -X POST http://SERVER_IP:4376/api/jobs/2/run
 ```
 cmd/server/          Main entry point
 internal/
-  api/               REST API handlers + auth middleware
+  api/               REST API handlers
+  auth/              Session + Basic Auth middleware
   config/            Configuration loading
   database/          SQLite persistence layer
   executor/          Job execution engine

@@ -1,13 +1,16 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
+	"time"
 )
 
 type Config struct {
 	Server   ServerConfig
 	Auth     AuthConfig
+	Session  SessionConfig
 	Database DatabaseConfig
 	Logs     LogsConfig
 	Notify   NotifyConfig
@@ -33,6 +36,13 @@ type AuthConfig struct {
 	Password string
 }
 
+type SessionConfig struct {
+	Secret        string
+	TTL           time.Duration
+	RememberTTL   time.Duration
+	SecureCookies bool
+}
+
 type DatabaseConfig struct {
 	Path string
 }
@@ -43,8 +53,9 @@ type LogsConfig struct {
 
 func DefaultConfig() *Config {
 	return &Config{
-		Server:   ServerConfig{Port: 4376},
-		Auth:     AuthConfig{Username: "admin", Password: "admin"},
+		Server:  ServerConfig{Port: 4376},
+		Auth:    AuthConfig{Username: "admin", Password: "admin"},
+		Session: SessionConfig{TTL: 24 * time.Hour, RememberTTL: 720 * time.Hour},
 		Database: DatabaseConfig{Path: "/data/jobs.db"},
 		Logs:     LogsConfig{Directory: "/data/logs"},
 	}
@@ -64,6 +75,25 @@ func Load() (*Config, error) {
 	}
 	if envPass := os.Getenv("HERMES_PASSWORD"); envPass != "" {
 		cfg.Auth.Password = envPass
+	}
+	if envSecret := os.Getenv("HERMES_SESSION_SECRET"); envSecret != "" {
+		cfg.Session.Secret = envSecret
+	}
+	if envTTL := os.Getenv("HERMES_SESSION_TTL"); envTTL != "" {
+		if d, err := time.ParseDuration(envTTL); err == nil {
+			cfg.Session.TTL = d
+		}
+	}
+	if envRememberTTL := os.Getenv("HERMES_SESSION_REMEMBER_TTL"); envRememberTTL != "" {
+		if d, err := time.ParseDuration(envRememberTTL); err == nil {
+			cfg.Session.RememberTTL = d
+		}
+	}
+	if os.Getenv("HERMES_SECURE_COOKIES") == "true" {
+		cfg.Session.SecureCookies = true
+	}
+	if len(cfg.Session.Secret) < 32 {
+		return nil, fmt.Errorf("HERMES_SESSION_SECRET is required and must be at least 32 bytes")
 	}
 	if envDomain := os.Getenv("HERMES_DOMAIN_URL"); envDomain != "" {
 		cfg.Server.DomainURL = envDomain

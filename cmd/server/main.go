@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/gorilla/mux"
 
 	"github.com/hermes-scheduler/hermes/internal/api"
+	"github.com/hermes-scheduler/hermes/internal/auth"
 	"github.com/hermes-scheduler/hermes/internal/config"
 	"github.com/hermes-scheduler/hermes/internal/database"
 	"github.com/hermes-scheduler/hermes/internal/executor"
@@ -24,6 +26,15 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	if cfg.Auth.Username == "admin" && cfg.Auth.Password == "admin" {
+		log.Println("Warning: using default admin credentials; set HERMES_USERNAME and HERMES_PASSWORD")
+	}
+
+	sessionStore, err := auth.NewSessionStore(&cfg.Session)
+	if err != nil {
+		log.Fatalf("Failed to initialize session store: %v", err)
 	}
 
 	if err := os.MkdirAll(cfg.Logs.Directory, 0750); err != nil {
@@ -48,7 +59,6 @@ func main() {
 		log.Fatalf("Failed to start scheduler: %v", err)
 	}
 
-	// Clean up old notifications on boot
 	if err := db.ClearOldNotifications(30); err != nil {
 		log.Printf("Warning: failed to clear old notifications: %v", err)
 	}
@@ -64,20 +74,28 @@ func main() {
 	}
 	notif.SystemNotify("Hermes Started", fmt.Sprintf("Hermes is ready. %d jobs are scheduled.", jobCount))
 
-	router := mux.NewRouter()
+	limiter := auth.NewLoginRateLimiter()
+	root := mux.NewRouter()
 
 	apiHandler := api.New(db, sched, exec)
-	apiHandler.RegisterRoutes(router)
+	webHandler := web.New(db, sched, exec, sessionStore, limiter, &cfg.Auth)
 
-	webHandler := web.New(db, sched, exec)
-	webHandler.RegisterRoutes(router)
+	webHandler.RegisterPublicRoutes(root)
+	apiRouter := root.PathPrefix("/api").Subrouter()
+	apiRouter.Use(auth.BasicAuthMiddleware(&cfg.Auth))
+	apiHandler.RegisterRoutes(apiRouter)
 
-	handler := api.BasicAuth(&cfg.Auth, router)
+	webRouter := root.NewRoute().MatcherFunc(func(r *http.Request, _ *mux.RouteMatch) bool {
+		path := r.URL.Path
+		return path != "/login" && !strings.HasPrefix(path, "/static/") && !strings.HasPrefix(path, "/api/")
+	}).Subrouter()
+	webRouter.Use(auth.SessionMiddleware(sessionStore))
+	webHandler.RegisterRoutes(webRouter)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	server := &http.Server{
 		Addr:    addr,
-		Handler: handler,
+		Handler: root,
 	}
 
 	go func() {

@@ -15,6 +15,8 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/hermes-scheduler/hermes/internal/auth"
+	"github.com/hermes-scheduler/hermes/internal/config"
 	"github.com/hermes-scheduler/hermes/internal/database"
 	"github.com/hermes-scheduler/hermes/internal/executor"
 	"github.com/hermes-scheduler/hermes/internal/models"
@@ -32,14 +34,21 @@ type Web struct {
 	scheduler *scheduler.Scheduler
 	executor  *executor.Executor
 	templates map[string]*template.Template
+	loginTmpl *template.Template
+	session   *auth.SessionStore
+	limiter   *auth.LoginRateLimiter
+	authCfg   *config.AuthConfig
 }
 
-func New(db *database.DB, sched *scheduler.Scheduler, exec *executor.Executor) *Web {
+func New(db *database.DB, sched *scheduler.Scheduler, exec *executor.Executor, session *auth.SessionStore, limiter *auth.LoginRateLimiter, authCfg *config.AuthConfig) *Web {
 	w := &Web{
 		db:        db,
 		scheduler: sched,
 		executor:  exec,
 		templates: make(map[string]*template.Template),
+		session:   session,
+		limiter:   limiter,
+		authCfg:   authCfg,
 	}
 	w.loadTemplates()
 	return w
@@ -116,6 +125,12 @@ func (w *Web) loadTemplates() {
 		}
 		w.templates[page] = t
 	}
+
+	loginTmpl, err := template.ParseFS(templateFS, "templates/login.html")
+	if err != nil {
+		log.Fatalf("Failed to parse login template: %v", err)
+	}
+	w.loginTmpl = loginTmpl
 }
 
 func (w *Web) render(wr http.ResponseWriter, name string, data interface{}) {
@@ -130,10 +145,104 @@ func (w *Web) render(wr http.ResponseWriter, name string, data interface{}) {
 	}
 }
 
-func (w *Web) RegisterRoutes(r *mux.Router) {
-	// `staticFS` embed structure natively contains the `static/` prefix
-	r.PathPrefix("/static/").Handler(http.FileServer(http.FS(staticFS)))
+func (w *Web) renderPage(wr http.ResponseWriter, r *http.Request, name string, data map[string]interface{}) {
+	if data == nil {
+		data = map[string]interface{}{}
+	}
+	if session, ok := auth.SessionFromContext(r.Context()); ok {
+		data["CSRFToken"] = session.CSRFToken
+	}
+	w.render(wr, name, data)
+}
 
+func (w *Web) renderLogin(wr http.ResponseWriter, data map[string]interface{}) {
+	wr.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := w.loginTmpl.Execute(wr, data); err != nil {
+		log.Printf("Login template error: %v", err)
+	}
+}
+
+func (w *Web) loginPage(wr http.ResponseWriter, r *http.Request) {
+	if _, ok := w.session.Get(r); ok {
+		http.Redirect(wr, r, "/", http.StatusSeeOther)
+		return
+	}
+	w.renderLogin(wr, map[string]interface{}{
+		"Title":    "Sign In",
+		"Next":     r.URL.Query().Get("next"),
+		"Error":    "",
+		"Username": "",
+	})
+}
+
+func (w *Web) loginSubmit(wr http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(wr, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	ip := auth.ClientIP(r)
+	if !w.limiter.Allow(ip) {
+		wr.WriteHeader(http.StatusTooManyRequests)
+		w.renderLogin(wr, map[string]interface{}{
+			"Title":    "Sign In",
+			"Next":     auth.SafeRedirect(r.FormValue("next")),
+			"Error":    "Invalid username or password",
+			"Username": r.FormValue("username"),
+		})
+		return
+	}
+
+	username := r.FormValue("username")
+	password := r.FormValue("password")
+	remember := r.FormValue("remember") == "on"
+	next := auth.SafeRedirect(r.FormValue("next"))
+
+	if !auth.ValidCredentials(w.authCfg, username, password) {
+		w.limiter.RecordFailure(ip)
+		w.renderLogin(wr, map[string]interface{}{
+			"Title":    "Sign In",
+			"Next":     next,
+			"Error":    "Invalid username or password",
+			"Username": username,
+		})
+		return
+	}
+
+	w.limiter.Reset(ip)
+	session, err := w.session.NewSession(username, remember)
+	if err != nil {
+		http.Error(wr, "failed to create session", http.StatusInternalServerError)
+		return
+	}
+	if err := w.session.Save(wr, session, w.session.IsSecureRequest(r)); err != nil {
+		http.Error(wr, "failed to save session", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(wr, r, next, http.StatusSeeOther)
+}
+
+func (w *Web) logout(wr http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(wr, "bad request", http.StatusBadRequest)
+		return
+	}
+	session, ok := auth.SessionFromContext(r.Context())
+	if ok && !auth.ValidateCSRF(session, r.FormValue("csrf_token")) {
+		http.Error(wr, "invalid csrf token", http.StatusForbidden)
+		return
+	}
+	w.session.Clear(wr, w.session.IsSecureRequest(r))
+	http.Redirect(wr, r, "/login", http.StatusSeeOther)
+}
+
+func (w *Web) RegisterPublicRoutes(r *mux.Router) {
+	r.PathPrefix("/static/").Handler(http.FileServer(http.FS(staticFS)))
+	r.HandleFunc("/login", w.loginPage).Methods("GET")
+	r.HandleFunc("/login", w.loginSubmit).Methods("POST")
+}
+
+func (w *Web) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/", w.dashboard).Methods("GET")
 	r.HandleFunc("/jobs/new", w.newJob).Methods("GET")
 	r.HandleFunc("/jobs/new", w.createJob).Methods("POST")
@@ -145,10 +254,10 @@ func (w *Web) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/jobs/{id}/delete", w.deleteJob).Methods("POST")
 	r.HandleFunc("/executions/{id}/logs", w.viewLogs).Methods("GET")
 	r.HandleFunc("/executions/{id}/cancel", w.cancelExecution).Methods("POST")
+	r.HandleFunc("/logout", w.logout).Methods("POST")
 
-	// Notifications API
-	r.HandleFunc("/api/notifications", w.getNotifications).Methods("GET")
-	r.HandleFunc("/api/notifications/read", w.markNotificationsRead).Methods("POST")
+	r.HandleFunc("/notifications", w.getNotifications).Methods("GET")
+	r.HandleFunc("/notifications/read", w.markNotificationsRead).Methods("POST")
 }
 
 func (w *Web) dashboard(wr http.ResponseWriter, r *http.Request) {
@@ -162,7 +271,7 @@ func (w *Web) dashboard(wr http.ResponseWriter, r *http.Request) {
 			jobs[i].NextRunAt = next
 		}
 	}
-	w.render(wr, "dashboard", map[string]interface{}{"Title": "Dashboard", "Jobs": jobs})
+	w.renderPage(wr, r, "dashboard", map[string]interface{}{"Title": "Dashboard", "Jobs": jobs})
 }
 
 type PredefinedJobData struct {
@@ -200,7 +309,7 @@ func (w *Web) saveJobScript(jobID int64, content string) (string, error) {
 }
 
 func (w *Web) newJob(wr http.ResponseWriter, r *http.Request) {
-	w.render(wr, "job_form", map[string]interface{}{
+	w.renderPage(wr, r, "job_form", map[string]interface{}{
 		"Title":              "New Job",
 		"Job":                &models.Job{RunnerType: models.RunnerTypeShell, Status: models.JobStatusEnabled, EnvVars: "{}"},
 		"PredefinedJobs":     models.PredefinedJobsRegistry,
@@ -247,7 +356,7 @@ func (w *Web) jobDetail(wr http.ResponseWriter, r *http.Request) {
 		job.NextRunAt = next
 	}
 	execs, _ := w.db.ListExecutions(job.ID, 50)
-	w.render(wr, "job_detail", map[string]interface{}{"Title": job.Name, "Job": job, "Executions": execs})
+	w.renderPage(wr, r, "job_detail", map[string]interface{}{"Title": job.Name, "Job": job, "Executions": execs})
 }
 
 func (w *Web) editJob(wr http.ResponseWriter, r *http.Request) {
@@ -270,7 +379,7 @@ func (w *Web) editJob(wr http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.render(wr, "job_form", map[string]interface{}{
+	w.renderPage(wr, r, "job_form", map[string]interface{}{
 		"Title":              "Edit " + job.Name,
 		"Job":                job,
 		"PredefinedJobs":     models.PredefinedJobsRegistry,
@@ -420,7 +529,7 @@ func (w *Web) viewLogs(wr http.ResponseWriter, r *http.Request) {
 	if data, err := os.ReadFile(exec.LogPath); err == nil {
 		logs = string(data)
 	}
-	w.render(wr, "logs", map[string]interface{}{
+	w.renderPage(wr, r, "logs", map[string]interface{}{
 		"Title": fmt.Sprintf("Execution #%d", exec.ID), "Execution": exec, "Logs": logs,
 	})
 }

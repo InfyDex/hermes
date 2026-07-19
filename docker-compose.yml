@@ -10,6 +10,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - TZ=Asia/Kolkata
+      # Required: Session signing secret (generate with: openssl rand -hex 32)
+      - HERMES_SESSION_SECRET=change-me-to-a-random-64-char-hex-string
       # Change the login credentials here:
       - HERMES_USERNAME=admin
       - HERMES_PASSWORD=admin
