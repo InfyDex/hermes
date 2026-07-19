@@ -11,6 +11,7 @@ import (
 	"github.com/hermes-scheduler/hermes/internal/auth"
 	"github.com/hermes-scheduler/hermes/internal/config"
 	"github.com/hermes-scheduler/hermes/internal/fleet"
+	"github.com/hermes-scheduler/hermes/internal/models"
 	"github.com/hermes-scheduler/hermes/internal/notifier"
 	"github.com/hermes-scheduler/hermes/internal/testutil"
 )
@@ -99,6 +100,19 @@ func TestValidatePeerURLRejectsNonHTTP(t *testing.T) {
 	_, err := mgr.AddPeer("bad", "file:///etc/passwd", "abcd")
 	if err == nil {
 		t.Fatal("expected error for file:// URL")
+	}
+}
+
+func TestHandleHandshakeRejectsLocalhostCallback(t *testing.T) {
+	_, mgr, _ := setupNode(t, "solo")
+	_, err := mgr.HandleHandshake(models.FleetPeerPayload{
+		NodeID:     "remote",
+		Name:       "Remote",
+		Address:    "http://localhost:4376",
+		PeerSecret: "secret",
+	})
+	if err == nil {
+		t.Fatal("expected error for localhost callback URL")
 	}
 }
 

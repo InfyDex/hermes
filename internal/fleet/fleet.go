@@ -311,18 +311,23 @@ func (m *Manager) HandleHeartbeat(token string, payload models.FleetPeerPayload)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	prevStatus := peer.Status
+	current, err := m.db.GetPeer(peer.ID)
+	if err != nil || current == nil {
+		return fmt.Errorf("unknown peer")
+	}
+	prevStatus := current.Status
+
 	now := time.Now().UTC()
 	if payload.Name != "" {
-		peer.Name = strings.TrimSpace(payload.Name)
+		current.Name = strings.TrimSpace(payload.Name)
 	}
-	peer.Status = models.PeerStatusOnline
-	peer.LastSeenAt = &now
-	if err := m.db.UpsertPeer(peer); err != nil {
+	current.Status = models.PeerStatusOnline
+	current.LastSeenAt = &now
+	if err := m.db.UpsertPeer(current); err != nil {
 		return err
 	}
-	m.missCounts[peer.ID] = 0
-	m.maybeNotifyTransitionLocked(peer.ID, peer.Name, prevStatus, models.PeerStatusOnline)
+	m.missCounts[current.ID] = 0
+	m.maybeNotifyTransitionLocked(current.ID, current.Name, prevStatus, models.PeerStatusOnline)
 	return nil
 }
 
@@ -635,7 +640,7 @@ func peerHost(address string) string {
 
 func isBlockedPeerHost(host string) bool {
 	switch host {
-	case "169.254.169.254", "metadata.google.internal", "metadata":
+	case "localhost", "169.254.169.254", "metadata.google.internal", "metadata":
 		return true
 	}
 	ip := net.ParseIP(host)
