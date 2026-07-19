@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.0.7
+
+### ✨ New Features
+* **Custom Login Page:** Replaced the browser Basic Auth dialog with a branded Hermes login page (dark theme, remember-me, show/hide password).
+* **Session-Based Web Auth:** Web UI now uses signed `HttpOnly` session cookies with logout support in the navbar.
+* **Login Rate Limiting:** Failed login attempts are rate-limited per IP (5 failures / 15 minutes).
+
+### 🔧 Improvements
+* **Split Auth Model:** Web UI uses session cookies; REST API (`/api/*`) continues to use HTTP Basic Auth for backward compatibility.
+* **Notification Routes:** Moved from `/api/notifications` to `/notifications` to keep the `/api` namespace exclusively for Basic Auth.
+
+### 🔒 Security
+* Required `HERMES_SESSION_SECRET` env var (min 32 bytes) for session signing.
+* Session rotation on login, CSRF token on logout, hardened post-login redirect validation.
+* API 401 responses no longer send `WWW-Authenticate` (prevents browser dialog on fetch errors).
+
+### ⚠️ Breaking Changes
+* **New required env var:** `HERMES_SESSION_SECRET` — generate with `openssl rand -hex 32`.
+* Notification endpoints moved: `/api/notifications` → `/notifications`, `/api/notifications/read` → `/notifications/read`.
+* Live log polling moved: `/api/executions/{id}/logs` → `/executions/{id}/logs/stream` (session-protected web route).
+
+---
+
 ## v0.0.4
 
 ### ✨ New Features

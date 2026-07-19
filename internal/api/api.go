@@ -26,16 +26,15 @@ func New(db *database.DB, sched *scheduler.Scheduler, exec *executor.Executor) *
 }
 
 func (a *API) RegisterRoutes(r *mux.Router) {
-	api := r.PathPrefix("/api").Subrouter()
-	api.HandleFunc("/jobs", a.listJobs).Methods("GET")
-	api.HandleFunc("/jobs", a.createJob).Methods("POST")
-	api.HandleFunc("/jobs/{id}", a.getJob).Methods("GET")
-	api.HandleFunc("/jobs/{id}", a.updateJob).Methods("PUT")
-	api.HandleFunc("/jobs/{id}", a.deleteJob).Methods("DELETE")
-	api.HandleFunc("/jobs/{id}/run", a.runJob).Methods("POST")
-	api.HandleFunc("/jobs/{id}/executions", a.listExecutions).Methods("GET")
-	api.HandleFunc("/executions/{id}/cancel", a.cancelExecution).Methods("POST")
-	api.HandleFunc("/executions/{id}/logs", a.getExecutionLogs).Methods("GET")
+	r.HandleFunc("/jobs", a.listJobs).Methods("GET")
+	r.HandleFunc("/jobs", a.createJob).Methods("POST")
+	r.HandleFunc("/jobs/{id}", a.getJob).Methods("GET")
+	r.HandleFunc("/jobs/{id}", a.updateJob).Methods("PUT")
+	r.HandleFunc("/jobs/{id}", a.deleteJob).Methods("DELETE")
+	r.HandleFunc("/jobs/{id}/run", a.runJob).Methods("POST")
+	r.HandleFunc("/jobs/{id}/executions", a.listExecutions).Methods("GET")
+	r.HandleFunc("/executions/{id}/cancel", a.cancelExecution).Methods("POST")
+	r.HandleFunc("/executions/{id}/logs", a.getExecutionLogs).Methods("GET")
 }
 
 func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {

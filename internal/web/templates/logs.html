@@ -34,7 +34,7 @@
     var el=document.getElementById('log-output');
     var eid={{ .Execution.ID }};
     setInterval(function(){
-        fetch('/api/executions/'+eid+'/logs')
+        fetch('/executions/'+eid+'/logs/stream')
             .then(function(r){return r.text()})
             .then(function(t){el.textContent=t;el.scrollTop=el.scrollHeight});
     },2000);
