@@ -19,6 +19,7 @@ import (
 	"github.com/hermes-scheduler/hermes/internal/config"
 	"github.com/hermes-scheduler/hermes/internal/database"
 	"github.com/hermes-scheduler/hermes/internal/executor"
+	"github.com/hermes-scheduler/hermes/internal/fleet"
 	"github.com/hermes-scheduler/hermes/internal/models"
 	"github.com/hermes-scheduler/hermes/internal/scheduler"
 )
@@ -33,23 +34,27 @@ type Web struct {
 	db         *database.DB
 	scheduler  *scheduler.Scheduler
 	executor   *executor.Executor
+	fleet      *fleet.Manager
 	templates  map[string]*template.Template
 	loginTmpl  *template.Template
 	session    *auth.SessionStore
 	limiter    *auth.LoginRateLimiter
 	authCfg    *config.AuthConfig
+	serverCfg  config.ServerConfig
 	trustProxy bool
 }
 
-func New(db *database.DB, sched *scheduler.Scheduler, exec *executor.Executor, session *auth.SessionStore, limiter *auth.LoginRateLimiter, authCfg *config.AuthConfig, trustProxy bool) *Web {
+func New(db *database.DB, sched *scheduler.Scheduler, exec *executor.Executor, fleetMgr *fleet.Manager, session *auth.SessionStore, limiter *auth.LoginRateLimiter, authCfg *config.AuthConfig, serverCfg config.ServerConfig, trustProxy bool) *Web {
 	w := &Web{
 		db:         db,
 		scheduler:  sched,
 		executor:   exec,
+		fleet:      fleetMgr,
 		templates:  make(map[string]*template.Template),
 		session:    session,
 		limiter:    limiter,
 		authCfg:    authCfg,
+		serverCfg:  serverCfg,
 		trustProxy: trustProxy,
 	}
 	w.loadTemplates()
@@ -117,9 +122,19 @@ func (w *Web) loadTemplates() {
 			}
 			return fmt.Sprintf("%dm %ds", int(d.Minutes()), int(d.Seconds())%60)
 		},
+		"peerStatusClass": func(s string) string {
+			switch s {
+			case "online":
+				return "success"
+			case "offline":
+				return "failed"
+			default:
+				return "disabled"
+			}
+		},
 	}
 
-	pages := []string{"dashboard", "job_form", "job_detail", "logs"}
+	pages := []string{"dashboard", "job_form", "job_detail", "logs", "fleet"}
 	for _, page := range pages {
 		t, err := template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/layout.html", "templates/"+page+".html")
 		if err != nil {
@@ -281,6 +296,12 @@ func (w *Web) RegisterRoutes(r *mux.Router) {
 
 	r.HandleFunc("/notifications", w.getNotifications).Methods("GET")
 	r.HandleFunc("/notifications/read", w.markNotificationsRead).Methods("POST")
+
+	r.HandleFunc("/fleet", w.fleetPage).Methods("GET")
+	r.HandleFunc("/fleet", w.fleetUpdateLocal).Methods("POST")
+	r.HandleFunc("/fleet/peers", w.fleetAddPeer).Methods("POST")
+	r.HandleFunc("/fleet/peers/{id}/delete", w.fleetDeletePeer).Methods("POST")
+	r.HandleFunc("/fleet/status", w.fleetStatusJSON).Methods("GET")
 }
 
 func (w *Web) dashboard(wr http.ResponseWriter, r *http.Request) {
@@ -294,7 +315,17 @@ func (w *Web) dashboard(wr http.ResponseWriter, r *http.Request) {
 			jobs[i].NextRunAt = next
 		}
 	}
-	w.renderPage(wr, r, "dashboard", map[string]interface{}{"Title": "Dashboard", "Jobs": jobs})
+	fleetResp, _ := w.fleet.ListPeersResponse()
+	local, _ := w.fleet.LocalSettings()
+	w.renderPage(wr, r, "dashboard", map[string]interface{}{
+		"Title":       "Dashboard",
+		"Jobs":        jobs,
+		"Fleet":       fleetResp,
+		"LocalNode":   local,
+		"DomainURL":   w.serverCfg.DomainURL,
+		"FleetError":  r.URL.Query().Get("fleet_error"),
+		"FleetNotice": r.URL.Query().Get("fleet_notice"),
+	})
 }
 
 type PredefinedJobData struct {

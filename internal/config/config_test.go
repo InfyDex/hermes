@@ -41,6 +41,7 @@ func TestLoadWithEnvOverrides(t *testing.T) {
 	os.Setenv("HERMES_PASSWORD", "pass1")
 	os.Setenv("HERMES_DOMAIN_URL", "https://hermes.example")
 	os.Setenv("HERMES_SERVER_NAME", "prod")
+	os.Setenv("HERMES_NODE_ID", "node-1")
 	os.Setenv("HERMES_SESSION_TTL", "2h")
 	os.Setenv("HERMES_SESSION_REMEMBER_TTL", "48h")
 	os.Setenv("HERMES_SECURE_COOKIES", "true")
@@ -70,6 +71,9 @@ func TestLoadWithEnvOverrides(t *testing.T) {
 	}
 	if cfg.Notify.DiscordWebhookURL == "" || cfg.Notify.SMTPHost == "" {
 		t.Fatalf("notify = %+v", cfg.Notify)
+	}
+	if cfg.Fleet.NodeID != "node-1" {
+		t.Fatalf("fleet node id = %q", cfg.Fleet.NodeID)
 	}
 }
 

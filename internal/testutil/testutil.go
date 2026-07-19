@@ -10,6 +10,7 @@ import (
 	"github.com/hermes-scheduler/hermes/internal/config"
 	"github.com/hermes-scheduler/hermes/internal/database"
 	"github.com/hermes-scheduler/hermes/internal/executor"
+	"github.com/hermes-scheduler/hermes/internal/fleet"
 	"github.com/hermes-scheduler/hermes/internal/notifier"
 	"github.com/hermes-scheduler/hermes/internal/runners"
 	"github.com/hermes-scheduler/hermes/internal/scheduler"
@@ -52,6 +53,10 @@ func TestAuthConfig() *config.AuthConfig {
 	return &config.AuthConfig{Username: "admin", Password: "secret"}
 }
 
+func TestServerConfig() config.ServerConfig {
+	return config.ServerConfig{DomainURL: "http://localhost:4376", ServerName: "test"}
+}
+
 func TestSessionConfig() *config.SessionConfig {
 	return &config.SessionConfig{
 		Secret:      SessionSecret,
@@ -74,6 +79,15 @@ func TestRegistry() *runners.Registry {
 	reg.Register(runners.NewShellRunner())
 	reg.Register(runners.NewDockerRunner())
 	return reg
+}
+
+func TestFleetManager(t *testing.T, db *database.DB, notif *notifier.Notifier) *fleet.Manager {
+	t.Helper()
+	mgr, err := fleet.New(db, notif, config.ServerConfig{DomainURL: "http://localhost:4376"}, config.FleetConfig{NodeID: "test-node"})
+	if err != nil {
+		t.Fatalf("fleet.New: %v", err)
+	}
+	return mgr
 }
 
 func TestStack(t *testing.T) (*database.DB, *executor.Executor, *scheduler.Scheduler, *notifier.Notifier) {

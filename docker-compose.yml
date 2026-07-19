@@ -18,9 +18,24 @@ services:
       
       # Optional: Identify the server sending the alerts (e.g. Edith)
       # - HERMES_SERVER_NAME=Edith
+
+      # Optional: Fleet node ID (defaults to HERMES_SERVER_NAME or hostname)
+      # - HERMES_NODE_ID=edith
       
       # Optional: To enable clickable links in notifications
+      # Required for multi-node fleet — set to this instance's public URL
       # - HERMES_DOMAIN_URL=https://hermes.example.com
+
+      # --- Fleet: run a second instance on port 4377 for local two-node testing ---
+      # hermes-b:
+      #   image: ghcr.io/infydex/hermes:latest
+      #   ports: ["4377:4376"]
+      #   environment:
+      #     - HERMES_SESSION_SECRET=change-me-to-a-random-64-char-hex-string
+      #     - HERMES_NODE_ID=node-b
+      #     - HERMES_DOMAIN_URL=http://localhost:4377
+      #   volumes:
+      #     - /srv/docker/hermes/data-b:/data
       
       # Optional: Discord webhook configuration
       # - HERMES_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/xxxx/xxxx

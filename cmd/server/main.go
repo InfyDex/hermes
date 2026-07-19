@@ -16,6 +16,7 @@ import (
 	"github.com/hermes-scheduler/hermes/internal/config"
 	"github.com/hermes-scheduler/hermes/internal/database"
 	"github.com/hermes-scheduler/hermes/internal/executor"
+	"github.com/hermes-scheduler/hermes/internal/fleet"
 	"github.com/hermes-scheduler/hermes/internal/notifier"
 	"github.com/hermes-scheduler/hermes/internal/runners"
 	"github.com/hermes-scheduler/hermes/internal/scheduler"
@@ -54,6 +55,12 @@ func main() {
 	notif := notifier.New(db, &cfg.Notify, cfg.Server.DomainURL, cfg.Server.ServerName)
 	exec := executor.New(db, registry, cfg.Logs.Directory, notif)
 
+	fleetMgr, err := fleet.New(db, notif, cfg.Server, cfg.Fleet)
+	if err != nil {
+		log.Fatalf("Failed to initialize fleet manager: %v", err)
+	}
+	fleetMgr.Start()
+
 	sched := scheduler.New(db, exec)
 	if err := sched.Start(); err != nil {
 		log.Fatalf("Failed to start scheduler: %v", err)
@@ -77,13 +84,28 @@ func main() {
 	limiter := auth.NewLoginRateLimiter()
 	root := mux.NewRouter()
 
-	apiHandler := api.New(db, sched, exec)
-	webHandler := web.New(db, sched, exec, sessionStore, limiter, &cfg.Auth, cfg.Server.TrustProxy)
+	apiHandler := api.New(db, sched, exec, fleetMgr)
+	webHandler := web.New(db, sched, exec, fleetMgr, sessionStore, limiter, &cfg.Auth, cfg.Server, cfg.Server.TrustProxy)
 
 	webHandler.RegisterPublicRoutes(root)
+
 	apiRouter := root.PathPrefix("/api").Subrouter()
-	apiRouter.Use(auth.BasicAuthMiddleware(&cfg.Auth))
-	apiHandler.RegisterRoutes(apiRouter)
+	apiHandler.RegisterFleetPublicRoutes(apiRouter)
+
+	peerSecret := func() string {
+		secret, err := fleetMgr.PeerSecret()
+		if err != nil {
+			return ""
+		}
+		return secret
+	}
+	apiRouter.Handle("/fleet/handshake", auth.PeerAuthMiddleware(peerSecret)(http.HandlerFunc(apiHandler.FleetHandshake))).Methods("POST")
+	apiRouter.Handle("/fleet/heartbeat", auth.PeerAuthMiddleware(peerSecret)(http.HandlerFunc(apiHandler.FleetHeartbeat))).Methods("POST")
+
+	adminAPI := apiRouter.PathPrefix("").Subrouter()
+	adminAPI.Use(auth.BasicAuthMiddleware(&cfg.Auth))
+	apiHandler.RegisterRoutes(adminAPI)
+	apiHandler.RegisterFleetRoutes(adminAPI)
 
 	webRouter := root.NewRoute().MatcherFunc(func(r *http.Request, _ *mux.RouteMatch) bool {
 		path := r.URL.Path
@@ -103,6 +125,7 @@ func main() {
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		<-sigCh
 		log.Println("Shutting down...")
+		fleetMgr.Stop()
 		sched.Stop()
 		server.Close()
 	}()
