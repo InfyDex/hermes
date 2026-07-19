@@ -27,6 +27,7 @@ const (
 	heartbeatInterval = 30 * time.Second
 	offlineThreshold  = 3
 	httpTimeout       = 10 * time.Second
+	notifyCooldown    = 60 * time.Second
 )
 
 type Manager struct {
@@ -38,6 +39,7 @@ type Manager struct {
 
 	mu         sync.Mutex
 	missCounts map[int64]int
+	lastNotify map[int64]time.Time
 	stopCh     chan struct{}
 }
 
@@ -47,8 +49,14 @@ func New(db *database.DB, notif *notifier.Notifier, server config.ServerConfig, 
 		notifier:   notif,
 		server:     server,
 		fleet:      fleet,
-		client:     &http.Client{Timeout: httpTimeout},
+		client: &http.Client{
+			Timeout: httpTimeout,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return fmt.Errorf("redirect not allowed")
+			},
+		},
 		missCounts: make(map[int64]int),
+		lastNotify: make(map[int64]time.Time),
 		stopCh:     make(chan struct{}),
 	}
 	if err := m.ensureNodeSettings(); err != nil {
@@ -204,7 +212,7 @@ func (m *Manager) AddPeer(name, address, peerSecret string) (*models.Peer, error
 	}
 
 	peerAddress := NormalizeAddress(respInfo.Address)
-	if peerAddress == "" {
+	if peerAddress == "" || validatePeerURL(peerAddress) != nil {
 		peerAddress = address
 	}
 
@@ -236,6 +244,7 @@ func (m *Manager) callbackAddress() string {
 func (m *Manager) RemovePeer(id int64) error {
 	m.mu.Lock()
 	delete(m.missCounts, id)
+	delete(m.lastNotify, id)
 	m.mu.Unlock()
 	return m.db.DeletePeer(id)
 }
@@ -300,6 +309,7 @@ func (m *Manager) HandleHeartbeat(token string, payload models.FleetPeerPayload)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	prevStatus := peer.Status
 	now := time.Now().UTC()
 	if payload.Name != "" {
 		peer.Name = strings.TrimSpace(payload.Name)
@@ -310,6 +320,7 @@ func (m *Manager) HandleHeartbeat(token string, payload models.FleetPeerPayload)
 		return err
 	}
 	m.missCounts[peer.ID] = 0
+	m.maybeNotifyTransitionLocked(peer.ID, peer.Name, prevStatus, models.PeerStatusOnline)
 	return nil
 }
 
@@ -462,15 +473,32 @@ func (m *Manager) setPeerStatusLocked(peer models.Peer, status models.PeerStatus
 		log.Printf("fleet: update peer %d status: %v", peer.ID, err)
 		return
 	}
-	name := current.Name
-	switch status {
-	case models.PeerStatusOffline:
-		m.notifier.SystemNotify("Peer Offline: "+name, name+" is unreachable.")
-	case models.PeerStatusOnline:
-		if prev == models.PeerStatusOffline || prev == models.PeerStatusUnknown {
-			m.notifier.SystemNotify("Peer Online: "+name, name+" is back online.")
-		}
+	m.maybeNotifyTransitionLocked(peer.ID, current.Name, prev, status)
+}
+
+func (m *Manager) maybeNotifyTransitionLocked(peerID int64, name string, prev, next models.PeerStatus) {
+	if prev == next {
+		return
 	}
+	var title, body string
+	switch next {
+	case models.PeerStatusOffline:
+		title = "Peer Offline: " + name
+		body = name + " is unreachable."
+	case models.PeerStatusOnline:
+		if prev != models.PeerStatusOffline && prev != models.PeerStatusUnknown {
+			return
+		}
+		title = "Peer Online: " + name
+		body = name + " is back online."
+	default:
+		return
+	}
+	if t, ok := m.lastNotify[peerID]; ok && time.Since(t) < notifyCooldown {
+		return
+	}
+	m.lastNotify[peerID] = time.Now()
+	m.notifier.SystemNotify(title, body)
 }
 
 func (m *Manager) postPeer(target, secret string, payload models.FleetPeerPayload) error {
