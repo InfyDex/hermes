@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -37,10 +38,11 @@ type Manager struct {
 	fleet    config.FleetConfig
 	client   *http.Client
 
-	mu         sync.Mutex
-	missCounts map[int64]int
-	lastNotify map[int64]time.Time
-	stopCh     chan struct{}
+	mu                sync.Mutex
+	missCounts        map[int64]int
+	lastOfflineNotify map[int64]time.Time
+	lastOnlineNotify  map[int64]time.Time
+	stopCh            chan struct{}
 }
 
 func New(db *database.DB, notif *notifier.Notifier, server config.ServerConfig, fleet config.FleetConfig) (*Manager, error) {
@@ -55,8 +57,9 @@ func New(db *database.DB, notif *notifier.Notifier, server config.ServerConfig, 
 				return fmt.Errorf("redirect not allowed")
 			},
 		},
-		missCounts: make(map[int64]int),
-		lastNotify: make(map[int64]time.Time),
+		missCounts:        make(map[int64]int),
+		lastOfflineNotify: make(map[int64]time.Time),
+		lastOnlineNotify:  make(map[int64]time.Time),
 		stopCh:     make(chan struct{}),
 	}
 	if err := m.ensureNodeSettings(); err != nil {
@@ -211,10 +214,8 @@ func (m *Manager) AddPeer(name, address, peerSecret string) (*models.Peer, error
 		return nil, fmt.Errorf("cannot add this node as a peer of itself")
 	}
 
-	peerAddress := NormalizeAddress(respInfo.Address)
-	if peerAddress == "" || validatePeerURL(peerAddress) != nil {
-		peerAddress = address
-	}
+	// Outbound callbacks use the admin-entered URL, not the remote handshake response.
+	peerAddress := address
 
 	peer := &models.Peer{
 		NodeID:     respInfo.NodeID,
@@ -244,7 +245,8 @@ func (m *Manager) callbackAddress() string {
 func (m *Manager) RemovePeer(id int64) error {
 	m.mu.Lock()
 	delete(m.missCounts, id)
-	delete(m.lastNotify, id)
+	delete(m.lastOfflineNotify, id)
+	delete(m.lastOnlineNotify, id)
 	m.mu.Unlock()
 	return m.db.DeletePeer(id)
 }
@@ -258,7 +260,7 @@ func (m *Manager) HandleHandshake(payload models.FleetPeerPayload) (models.Fleet
 	if payload.NodeID == "" || payload.Name == "" || payload.Address == "" || payload.PeerSecret == "" {
 		return models.FleetNodeInfo{}, fmt.Errorf("node_id, name, address, and peer_secret are required")
 	}
-	if err := validatePeerURL(payload.Address); err != nil {
+	if err := validatePeerCallbackURL(payload.Address); err != nil {
 		return models.FleetNodeInfo{}, err
 	}
 
@@ -461,6 +463,11 @@ func (m *Manager) setPeerStatusLocked(peer models.Peer, status models.PeerStatus
 	}
 	prev := current.Status
 	if prev == status {
+		if status == models.PeerStatusOnline && lastSeen != nil {
+			if err := m.db.UpdatePeerStatus(peer.ID, status, lastSeen); err != nil {
+				log.Printf("fleet: refresh peer %d last_seen: %v", peer.ID, err)
+			}
+		}
 		return
 	}
 	if status == models.PeerStatusOffline && current.LastSeenAt != nil {
@@ -494,10 +501,17 @@ func (m *Manager) maybeNotifyTransitionLocked(peerID int64, name string, prev, n
 	default:
 		return
 	}
-	if t, ok := m.lastNotify[peerID]; ok && time.Since(t) < notifyCooldown {
+	var last map[int64]time.Time
+	switch next {
+	case models.PeerStatusOffline:
+		last = m.lastOfflineNotify
+	case models.PeerStatusOnline:
+		last = m.lastOnlineNotify
+	}
+	if t, ok := last[peerID]; ok && time.Since(t) < notifyCooldown {
 		return
 	}
-	m.lastNotify[peerID] = time.Now()
+	last[peerID] = time.Now()
 	m.notifier.SystemNotify(title, body)
 }
 
@@ -599,6 +613,36 @@ func validatePeerURL(address string) error {
 	default:
 		return fmt.Errorf("peer URL must use http or https")
 	}
+}
+
+func validatePeerCallbackURL(address string) error {
+	if err := validatePeerURL(address); err != nil {
+		return err
+	}
+	if isBlockedPeerHost(peerHost(address)) {
+		return fmt.Errorf("peer callback URL is not allowed")
+	}
+	return nil
+}
+
+func peerHost(address string) string {
+	u, err := url.Parse(address)
+	if err != nil {
+		return ""
+	}
+	return strings.ToLower(u.Hostname())
+}
+
+func isBlockedPeerHost(host string) bool {
+	switch host {
+	case "169.254.169.254", "metadata.google.internal", "metadata":
+		return true
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback() || ip.IsLinkLocalUnicast()
 }
 
 func generateSecret() (string, error) {
