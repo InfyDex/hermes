@@ -3,7 +3,9 @@ package fleet_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 
@@ -103,19 +105,6 @@ func TestValidatePeerURLRejectsNonHTTP(t *testing.T) {
 	}
 }
 
-func TestHandleHandshakeRejectsLocalhostCallback(t *testing.T) {
-	_, mgr, _ := setupNode(t, "solo")
-	_, err := mgr.HandleHandshake(models.FleetPeerPayload{
-		NodeID:     "remote",
-		Name:       "Remote",
-		Address:    "http://localhost:4376",
-		PeerSecret: "secret",
-	})
-	if err == nil {
-		t.Fatal("expected error for localhost callback URL")
-	}
-}
-
 func TestPeerAuthMiddleware(t *testing.T) {
 	called := false
 	handler := auth.PeerAuthMiddleware(func() string { return "secret-token" })(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -135,5 +124,176 @@ func TestPeerAuthMiddleware(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", rr.Code)
+	}
+}
+
+func TestHandleHandshakeRejectsLocalhostCallback(t *testing.T) {
+	_, mgr, _ := setupNode(t, "solo")
+	_, err := mgr.HandleHandshake(models.FleetPeerPayload{
+		NodeID:     "remote",
+		Name:       "Remote",
+		Address:    "http://localhost:4376",
+		PeerSecret: "secret",
+	})
+	if err == nil {
+		t.Fatal("expected error for localhost callback URL")
+	}
+}
+
+func TestHandleHeartbeatAndAuthenticate(t *testing.T) {
+	nodeB, mgrB, secretB := setupNode(t, "node-b")
+	_, mgrA, secretA := setupNode(t, "node-a")
+
+	if _, err := mgrA.AddPeer("Node B", nodeB.URL, secretB); err != nil {
+		t.Fatalf("AddPeer: %v", err)
+	}
+
+	if !mgrB.AuthenticatePeerSecret(secretA) {
+		t.Fatal("expected peer secret to authenticate")
+	}
+	if mgrB.AuthenticatePeerSecret("wrong") {
+		t.Fatal("unexpected auth for wrong secret")
+	}
+
+	err := mgrB.HandleHeartbeat(secretA, models.FleetPeerPayload{
+		NodeID:  "node-a",
+		Name:    "Node A",
+		Address: "http://node-a.test",
+	})
+	if err != nil {
+		t.Fatalf("HandleHeartbeat: %v", err)
+	}
+
+	resp, _ := mgrB.ListPeersResponse()
+	if len(resp.Peers) != 1 || resp.Peers[0].Status != models.PeerStatusOnline {
+		t.Fatalf("peer=%+v", resp.Peers)
+	}
+}
+
+func TestHandleHeartbeatRejectsNodeIDMismatch(t *testing.T) {
+	_, mgr, _ := setupNode(t, "solo")
+	_, err := mgr.HandleHandshake(models.FleetPeerPayload{
+		NodeID: "remote", Name: "Remote", Address: "http://remote.test:4376", PeerSecret: "remote-secret",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = mgr.HandleHeartbeat("remote-secret", models.FleetPeerPayload{NodeID: "other-id"})
+	if err == nil {
+		t.Fatal("expected node_id mismatch error")
+	}
+}
+
+func TestRemovePeerAndUpdateLocal(t *testing.T) {
+	_, mgr, _ := setupNode(t, "solo")
+	_, err := mgr.HandleHandshake(models.FleetPeerPayload{
+		NodeID: "remote", Name: "Remote", Address: "http://remote.test:4376", PeerSecret: "remote-secret",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	peers, _ := mgr.ListPeersResponse()
+	if len(peers.Peers) != 1 {
+		t.Fatal("expected peer")
+	}
+
+	if err := mgr.RemovePeer(peers.Peers[0].ID); err != nil {
+		t.Fatalf("RemovePeer: %v", err)
+	}
+	resp, _ := mgr.ListPeersResponse()
+	if len(resp.Peers) != 0 {
+		t.Fatalf("peers=%d", len(resp.Peers))
+	}
+
+	settings, err := mgr.UpdateLocal("New Name", true)
+	if err != nil {
+		t.Fatalf("UpdateLocal: %v", err)
+	}
+	if settings.Name != "New Name" {
+		t.Fatalf("name=%q", settings.Name)
+	}
+}
+
+func TestCheckPeersOutboundHeartbeat(t *testing.T) {
+	nodeB, _, secretB := setupNode(t, "node-b")
+	_, mgrA, _ := setupNode(t, "node-a")
+
+	if _, err := mgrA.AddPeer("Node B", nodeB.URL, secretB); err != nil {
+		t.Fatalf("AddPeer: %v", err)
+	}
+
+	mgrA.Start()
+	time.Sleep(200 * time.Millisecond)
+	mgrA.Stop()
+
+	resp, _ := mgrA.ListPeersResponse()
+	if len(resp.Peers) != 1 {
+		t.Fatalf("peers=%d", len(resp.Peers))
+	}
+	if resp.Peers[0].Status != models.PeerStatusOnline {
+		t.Fatalf("status=%s", resp.Peers[0].Status)
+	}
+}
+
+func TestDefaultNodeIDUnique(t *testing.T) {
+	db := testutil.TestDB(t)
+	notif := notifier.New(db, &config.NotifyConfig{}, "http://localhost:4376", "test")
+	mgr, err := fleet.New(db, notif, config.ServerConfig{ServerName: "shared-host"}, config.FleetConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings, err := mgr.LocalSettings()
+	if err != nil || settings == nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(settings.NodeID, "shared-host") {
+		t.Fatalf("node_id=%q", settings.NodeID)
+	}
+	if !strings.Contains(settings.NodeID, "-") {
+		t.Fatalf("expected random suffix in node_id=%q", settings.NodeID)
+	}
+}
+
+func TestLocalNodeInfoAndPeerSecret(t *testing.T) {
+	_, mgr, secret := setupNode(t, "info-node")
+	info, err := mgr.LocalNodeInfo()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.NodeID != "info-node" || info.Address == "" {
+		t.Fatalf("info=%+v", info)
+	}
+	got, err := mgr.PeerSecret()
+	if err != nil || got != secret {
+		t.Fatalf("secret=%q err=%v", got, err)
+	}
+}
+
+func TestAddPeerRequiresDomainURL(t *testing.T) {
+	db := testutil.TestDB(t)
+	notif := notifier.New(db, &config.NotifyConfig{}, "", "test")
+	mgr, err := fleet.New(db, notif, config.ServerConfig{}, config.FleetConfig{NodeID: "solo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = mgr.AddPeer("X", "http://x.test:4376", "secret")
+	if err == nil || !strings.Contains(err.Error(), "HERMES_DOMAIN_URL") {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestUpsertPeerIdempotentByNodeID(t *testing.T) {
+	nodeB, _, secretB := setupNode(t, "node-b")
+	_, mgrA, _ := setupNode(t, "node-a")
+
+	if _, err := mgrA.AddPeer("Node B", nodeB.URL, secretB); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mgrA.AddPeer("Node B Again", nodeB.URL, secretB); err != nil {
+		t.Fatalf("retry AddPeer: %v", err)
+	}
+	resp, _ := mgrA.ListPeersResponse()
+	if len(resp.Peers) != 1 {
+		t.Fatalf("peers=%d", len(resp.Peers))
 	}
 }
