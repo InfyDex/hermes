@@ -227,7 +227,7 @@ func (m *Manager) AddPeer(name, address, peerSecret string) (*models.Peer, error
 	now := time.Now().UTC()
 	peer.LastSeenAt = &now
 	if err := m.db.UpsertPeer(peer); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("handshake ok but failed to save peer locally (retry add peer): %w", err)
 	}
 	m.mu.Lock()
 	m.missCounts[peer.ID] = 0
@@ -320,6 +320,11 @@ func (m *Manager) HandleHeartbeat(token string, payload models.FleetPeerPayload)
 	now := time.Now().UTC()
 	if payload.Name != "" {
 		current.Name = strings.TrimSpace(payload.Name)
+	}
+	if addr := NormalizeAddress(payload.Address); addr != "" {
+		if err := validatePeerCallbackURL(addr); err == nil {
+			current.Address = addr
+		}
 	}
 	current.Status = models.PeerStatusOnline
 	current.LastSeenAt = &now
@@ -425,9 +430,15 @@ func (m *Manager) checkPeers() {
 		Address: m.callbackAddress(),
 	}
 
+	var wg sync.WaitGroup
 	for _, peer := range peers {
-		m.pingPeer(peer, local, payload)
+		wg.Add(1)
+		go func(p models.Peer) {
+			defer wg.Done()
+			m.pingPeer(p, local, payload)
+		}(peer)
 	}
+	wg.Wait()
 }
 
 func (m *Manager) pingPeer(peer models.Peer, local *models.NodeSettings, payload models.FleetPeerPayload) {
