@@ -58,10 +58,12 @@ GET /api/health
 
 ### Peer authentication (Bearer token)
 
-Use the **target node's peer secret** as `Authorization: Bearer <secret>`.
+- **Handshake:** `Authorization: Bearer <target_node_peer_secret>` (from that node's Fleet Settings).
+- **Heartbeat:** `Authorization: Bearer <this_node_peer_secret>` (your secret the remote stored at pairing). Receiver matches token to registered peer — cannot impersonate another `node_id`.
 
 ```
 POST /api/fleet/handshake
+Authorization: Bearer <target_node_peer_secret>
 {
   "node_id": "node-a",
   "name": "Node A",
