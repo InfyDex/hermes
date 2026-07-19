@@ -297,25 +297,19 @@ func (m *Manager) HandleHeartbeat(token string, payload models.FleetPeerPayload)
 		return fmt.Errorf("node_id mismatch")
 	}
 
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	now := time.Now().UTC()
 	if payload.Name != "" {
 		peer.Name = strings.TrimSpace(payload.Name)
-	}
-	if payload.Address != "" {
-		addr := NormalizeAddress(payload.Address)
-		if err := validatePeerURL(addr); err != nil {
-			return err
-		}
-		peer.Address = addr
 	}
 	peer.Status = models.PeerStatusOnline
 	peer.LastSeenAt = &now
 	if err := m.db.UpsertPeer(peer); err != nil {
 		return err
 	}
-	m.mu.Lock()
 	m.missCounts[peer.ID] = 0
-	m.mu.Unlock()
 	return nil
 }
 
@@ -435,7 +429,11 @@ func (m *Manager) pingPeer(peer models.Peer, local *models.NodeSettings, payload
 		}
 		m.missCounts[peer.ID]++
 		if m.missCounts[peer.ID] >= offlineThreshold {
-			m.setPeerStatusLocked(peer, models.PeerStatusOffline, peer.LastSeenAt)
+			var lastSeen *time.Time
+			if current != nil {
+				lastSeen = current.LastSeenAt
+			}
+			m.setPeerStatusLocked(peer, models.PeerStatusOffline, lastSeen)
 		}
 		return
 	}
@@ -453,6 +451,12 @@ func (m *Manager) setPeerStatusLocked(peer models.Peer, status models.PeerStatus
 	prev := current.Status
 	if prev == status {
 		return
+	}
+	if status == models.PeerStatusOffline && current.LastSeenAt != nil {
+		grace := heartbeatInterval * time.Duration(offlineThreshold)
+		if time.Since(*current.LastSeenAt) < grace {
+			return
+		}
 	}
 	if err := m.db.UpdatePeerStatus(peer.ID, status, lastSeen); err != nil {
 		log.Printf("fleet: update peer %d status: %v", peer.ID, err)
