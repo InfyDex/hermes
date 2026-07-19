@@ -30,14 +30,14 @@ var templateFS embed.FS
 var staticFS embed.FS
 
 type Web struct {
-	db        *database.DB
-	scheduler *scheduler.Scheduler
-	executor  *executor.Executor
-	templates map[string]*template.Template
-	loginTmpl *template.Template
-	session   *auth.SessionStore
-	limiter   *auth.LoginRateLimiter
-	authCfg   *config.AuthConfig
+	db         *database.DB
+	scheduler  *scheduler.Scheduler
+	executor   *executor.Executor
+	templates  map[string]*template.Template
+	loginTmpl  *template.Template
+	session    *auth.SessionStore
+	limiter    *auth.LoginRateLimiter
+	authCfg    *config.AuthConfig
 	trustProxy bool
 }
 

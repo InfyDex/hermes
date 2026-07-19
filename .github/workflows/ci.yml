@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y gcc libc6-dev libsqlite3-dev
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.61.0
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: "1"
+      HERMES_SESSION_SECRET: "ci-test-secret-must-be-at-least-32-bytes-long"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y gcc libc6-dev libsqlite3-dev
+      - name: Run tests with coverage gate
+        run: chmod +x scripts/check-coverage.sh && ./scripts/check-coverage.sh
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage.out

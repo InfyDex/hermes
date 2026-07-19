@@ -34,7 +34,7 @@ func (j *Job) ApplyPredefinedOverrides(customScriptPath string) bool {
 	if pj, ok := PredefinedJobsRegistry[j.PredefinedJobID]; ok {
 		j.RunnerType = pj.RunnerType
 		j.WorkingDir = pj.WorkingDir
-		
+
 		if customScriptPath != "" {
 			j.Command = customScriptPath
 		} else {

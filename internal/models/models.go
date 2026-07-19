@@ -27,11 +27,11 @@ type Job struct {
 	CronExpr        string     `json:"cron_expr"`
 	RunnerType      RunnerType `json:"runner_type"`
 	Command         string     `json:"command"`
-	WorkingDir    string     `json:"working_dir"`
-	EnvVars       string     `json:"env_vars"`
-	Timeout       int        `json:"timeout"`
-	AllowParallel bool       `json:"allow_parallel"`
-	Status        JobStatus  `json:"status"`
+	WorkingDir      string     `json:"working_dir"`
+	EnvVars         string     `json:"env_vars"`
+	Timeout         int        `json:"timeout"`
+	AllowParallel   bool       `json:"allow_parallel"`
+	Status          JobStatus  `json:"status"`
 
 	// Notification settings
 	NotifyOnStart   bool `json:"notify_on_start"`

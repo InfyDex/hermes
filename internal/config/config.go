@@ -17,10 +17,10 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port        int
-	DomainURL   string
-	ServerName  string
-	TrustProxy  bool
+	Port       int
+	DomainURL  string
+	ServerName string
+	TrustProxy bool
 }
 
 type NotifyConfig struct {
@@ -54,9 +54,9 @@ type LogsConfig struct {
 
 func DefaultConfig() *Config {
 	return &Config{
-		Server:  ServerConfig{Port: 4376},
-		Auth:    AuthConfig{Username: "admin", Password: "admin"},
-		Session: SessionConfig{TTL: 24 * time.Hour, RememberTTL: 720 * time.Hour},
+		Server:   ServerConfig{Port: 4376},
+		Auth:     AuthConfig{Username: "admin", Password: "admin"},
+		Session:  SessionConfig{TTL: 24 * time.Hour, RememberTTL: 720 * time.Hour},
 		Database: DatabaseConfig{Path: "/data/jobs.db"},
 		Logs:     LogsConfig{Directory: "/data/logs"},
 	}

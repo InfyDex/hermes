@@ -27,3 +27,4 @@ vendor/
 # Local Testing
 docker-compose.test.yml
 test-data/
+coverage.out
